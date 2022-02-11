@@ -168,9 +168,12 @@ class RocketCircularization(object):
         '''
         self.animation.show_animation()
     
-    def save(self, ):
+    def save(self, name):
         '''
-        Show animation
+        Save animation
+        
+        Parameter:
+            name: str, the file path
         '''
         self.animation.save_animation()
 
@@ -179,7 +182,7 @@ if __name__ == '__main__':
     done = False
     obs = env.reset(init_state=np.array([2, 0, 0, 0.75]))
     while not done:
-        obs, _, done, _ = env.step(2)
+        obs, _, done, _ = env.step(1)
         
-    env.save()
+    env.save('test.mp4')
     

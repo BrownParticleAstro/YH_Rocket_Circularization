@@ -40,7 +40,8 @@ class RocketAnimation(object):
         self.ax = plt.axes(xlim=xlim, ylim=ylim)
         self.t_vec_len = t_vec_len
         self.line, = self.ax.plot([], [], marker='o', markersize=markersize)
-        self.arrow = Arrow(posA=(0, 0), posB=(0, 0), arrowstyle='simple', mutation_scale=10, color='r')
+        self.arrow = Arrow(posA=(0, 0), posB=(
+            0, 0), arrowstyle='simple', mutation_scale=10, color='r')
         self.ax.add_patch(self.arrow)
 
         self.ax.plot(*_circle(r_min), '--', label='Minimum Radius')
@@ -89,11 +90,17 @@ class RocketAnimation(object):
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
             self.states), interval=10, repeat=False)
         plt.show()
-        
-    def save_animation(self, ):
+
+    def save_animation(self, name):
+        '''
+        Save the animation in a file
+
+        Parameter:
+            name: str, the file name
+        '''
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
             self.states), interval=10, repeat=False)
-        anim.save('test.mp4')
+        anim.save(name)
 
     def render(self, state, thrust):
         '''
