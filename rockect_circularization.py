@@ -63,6 +63,8 @@ class RocketCircularization(object):
 
         self.done = False
 
+        self.animation = RocketAnimation()
+
     def reset(self, init_state=np.array([1, 0, 0, 1.01], dtype=np.float32)):
         '''
         Reset the environment
@@ -76,6 +78,8 @@ class RocketCircularization(object):
         self.state = init_state
         self.iters = 0
         self.done = False
+        self.animation = RocketAnimation()
+        self.animation.render(init_state)
         return self.state
 
     def _reward(self, pos):
@@ -103,7 +107,7 @@ class RocketCircularization(object):
             raise ValueError(
                 f'Action should be an integer between 0 and {self.action_space_size}')
 
-        if done:
+        if self.done:
             print('Warning: Stepping after done is True')
 
         r, v = self.state[:self.state_space_dim //
@@ -147,5 +151,20 @@ class RocketCircularization(object):
                     print('Out-of-Bounds')
                     reward -= 100
                     break
+                
+        self.animation.render(self.state)
 
         return self.state, reward, self.done, info
+    
+    def animate(self, ):
+        self.animation.show_animation()
+
+if __name__ == '__main__':
+    env = RocketCircularization()
+    done = False
+    obs = env.reset(init_state=np.array([2, 0, 0, 0.75]))
+    while not done:
+        obs, _, done, _ = env.step(1)
+        
+    env.animate()
+    
