@@ -89,7 +89,11 @@ class RocketAnimation(object):
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
             self.states), interval=10, repeat=False)
         plt.show()
-
+        
+    def save_animation(self, ):
+        anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
+            self.states), interval=10, repeat=False)
+        anim.save('test.mp4')
 
     def render(self, state, thrust):
         '''

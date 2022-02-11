@@ -167,13 +167,19 @@ class RocketCircularization(object):
         Show animation
         '''
         self.animation.show_animation()
+    
+    def save(self, ):
+        '''
+        Show animation
+        '''
+        self.animation.save_animation()
 
 if __name__ == '__main__':
     env = RocketCircularization()
     done = False
     obs = env.reset(init_state=np.array([2, 0, 0, 0.75]))
     while not done:
-        obs, _, done, _ = env.step(1)
+        obs, _, done, _ = env.step(2)
         
-    env.animate()
+    env.save()
     
