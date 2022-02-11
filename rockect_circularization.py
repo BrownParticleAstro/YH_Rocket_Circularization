@@ -78,7 +78,12 @@ class RocketCircularization(object):
         self.state = init_state
         self.iters = 0
         self.done = False
-        self.animation = RocketAnimation()
+        
+        # Initialize animation
+        limits = (- self.max_radius - 0.2, self.max_radius + 0.2)
+        self.animation = RocketAnimation(
+            r_min=self.min_radius, r_max=self.max_radius,
+            xlim=limits, ylim=limits)
         self.animation.render(init_state)
         return self.state
 
@@ -157,6 +162,9 @@ class RocketCircularization(object):
         return self.state, reward, self.done, info
     
     def animate(self, ):
+        '''
+        Show animation
+        '''
         self.animation.show_animation()
 
 if __name__ == '__main__':
