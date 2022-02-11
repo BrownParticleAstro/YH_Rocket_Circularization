@@ -6,6 +6,7 @@ class RocketCircularization(object):
     '''
     A Rocket Circularization Game Environment
     '''
+
     def __init__(self, max_iter=500, radius_range=[0.1, 10], target_radius=1,
                  dt=0.01, M=1, m=0.01, G=1,
                  init_state=np.array([1, 0, 0, 1], dtype=np.float32),
@@ -60,6 +61,8 @@ class RocketCircularization(object):
             self.thrust_accelerations.append(thrust_acceleration)
         self.thrust_accelerations = np.array(self.thrust_accelerations)
 
+        self.done = False
+
     def reset(self, init_state=np.array([1, 0, 0, 1.01], dtype=np.float32)):
         '''
         Reset the environment
@@ -72,6 +75,7 @@ class RocketCircularization(object):
             raise ValueError(f'The number of states should be {self.dims}')
         self.state = init_state
         self.iters = 0
+        self.done = False
         return self.state
 
     def _reward(self, pos):
@@ -99,6 +103,9 @@ class RocketCircularization(object):
             raise ValueError(
                 f'Action should be an integer between 0 and {self.action_space_size}')
 
+        if done:
+            print('Warning: Stepping after done is True')
+
         r, v = self.state[:self.state_space_dim //
                           2], self.state[self.state_space_dim//2:]
         done = False
@@ -118,13 +125,13 @@ class RocketCircularization(object):
             # If out-of-bounds, end the game
             if np.linalg.norm(r) > self.max_radius or np.linalg.norm(r) < self.min_radius:
                 print('Out-of-Bounds')
-                done = True
+                self.done = True
                 break
 
         self.state = np.concatenate((r, v), axis=0)
         self.iters += 1
         if self.iters >= self.max_iter:
-            done = True
+            self.done = True
             # Play for evaluation_steps after all has finished
             for _ in range(evaluation_steps):
                 # Calculate total force
@@ -141,4 +148,4 @@ class RocketCircularization(object):
                     reward -= 100
                     break
 
-        return self.state, reward, done, info
+        return self.state, reward, self.done, info
