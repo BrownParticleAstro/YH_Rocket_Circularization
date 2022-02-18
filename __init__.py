@@ -1,1 +1,1 @@
-__all__ = ['rocket_circularization']
+__all__ = ['RocketCircularization']
