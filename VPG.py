@@ -4,17 +4,27 @@ import numpy as np
 import time
 
 
+def create_mlp(dims):
+    assert len(dims) >= 2
+    model = tf.keras.Sequential()
+    model.add(tf.keras.Input(shape=(dims[0],)))
+    for dim in dims[1:-1]:
+        model.add(tf.keras.layers.Dense(dim, activation='relu'))
+    model.add(tf.keras.layers.Dense(dims[-1], activation='log_softmax'))
+
+    return model
+
+
 class PolicyNetwork(tf.keras.Model):
     def __init__(self, input_dims, hidden_dims, output_dims, lr=0.001) -> None:
         '''
         Initiate a policy network with the indicated dimensions
         '''
         super(PolicyNetwork, self).__init__()
-        self.net = tf.keras.Sequential([
-            tf.keras.layers.Dense(
-                hidden_dims, activation='relu', input_shape=(input_dims,)),
-            tf.keras.layers.Dense(output_dims, activation='log_softmax')
-        ])
+        if isinstance(hidden_dims, list):
+            self.net = create_mlp([input_dims, *hidden_dims, output_dims])
+        elif isinstance(hidden_dims, int):
+            self.net = create_mlp([input_dims, hidden_dims, output_dims])
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         self.iters = 0
 
@@ -184,11 +194,10 @@ class PolicyNetworkBaseline(PolicyNetwork):
         super(PolicyNetworkBaseline, self).__init__(
             input_dims, actor_hidden_dims, output_dims, lr)
 
-        self.value = tf.keras.Sequential([
-            tf.keras.layers.Dense(
-                critic_hidden_dims, activation='relu', input_shape=(input_dims,)),
-            tf.keras.layers.Dense(1)
-        ])
+        if isinstance(critic_hidden_dims, list):
+            self.value = create_mlp([input_dims, *critic_hidden_dims, 1])
+        elif isinstance(critic_hidden_dims, int):
+            self.value = create_mlp([input_dims, critic_hidden_dims, 1])
 
     def loss(self, log_probs, values, discounted_rewards):
         '''
