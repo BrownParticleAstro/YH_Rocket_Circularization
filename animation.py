@@ -29,11 +29,11 @@ class RocketAnimation(object):
             0, 0), arrowstyle='simple', mutation_scale=10, color='r')
         self.ax.add_patch(self.arrow)
 
-        self.min_circle = self.ax.plot(
+        self.min_circle, = self.ax.plot(
             *self._circle(r_min), '--', label='Minimum Radius')
-        self.target_circle = self.ax.plot(
+        self.target_circle, = self.ax.plot(
             *self._circle(r_target), '--', label='Target Orbit')
-        self.max_circle = self.ax.plot(
+        self.max_circle, = self.ax.plot(
             *self._circle(r_max), '--', label='Maximum Radius')
 
         self.ax.grid(True)

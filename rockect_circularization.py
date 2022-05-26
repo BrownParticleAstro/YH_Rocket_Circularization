@@ -12,7 +12,7 @@ class RocketCircularization(object):
     def __init__(self, max_iter=1000, evaluation_steps=2000,  radius_range=[0.1, 10], target_radius=1,
                  dt=0.01, M=1, m=0.01, G=1, bound_config=DEFAULT_BOUNDS,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]],
-                 evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1):
+                 evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, t_vec_len=1):
         '''
         Initialize the Rocket Circularization game environment
 
@@ -84,6 +84,7 @@ class RocketCircularization(object):
         self.done = False
 
         self.animation = RocketAnimation()
+        self.t_vec_len = t_vec_len
 
     def reset(self, init_state=None):
         '''
@@ -104,14 +105,15 @@ class RocketCircularization(object):
         
         # Reset the bounds
         self.bounds.reset()
+        self.min_radius, self.max_radius = self.bounds.get_bounds(self.iters)
         
         # Initialize animation
         limits = (- self.max_radius - 0.2, self.max_radius + 0.2)
         plt.close(self.animation.fig)
         self.animation = RocketAnimation(
             r_min=self.min_radius, r_target=self.target_radius, r_max=self.max_radius,
-            xlim=limits, ylim=limits)
-        self.animation.render(init_state, thrust=np.array([0, 0]))
+            xlim=limits, ylim=limits, t_vec_len=self.t_vec_len)
+        self.animation.render(init_state, np.array([0, 0]), self.min_radius, self.target_radius, self.max_radius)
         
         return self.state
 
