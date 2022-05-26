@@ -159,8 +159,8 @@ class RocketCircularization(object):
 
         r, v = self.state[:self.state_space_dim //
                           2], self.state[self.state_space_dim//2:]
-        v_hat = v / np.linalg.norm(v)
-        rotation_matrix = np.array([[v_hat[0], -v_hat[1]], [v_hat[1], v_hat[0]]])
+        r_hat = r / np.linalg.norm(r)
+        rotation_matrix = np.array([[r_hat[0], -r_hat[1]], [r_hat[1], r_hat[0]]])
         done = False
         reward = 0
         info = dict()
