@@ -230,9 +230,9 @@ class PolicyNetworkBaseline(PolicyNetwork):
         '''
         losses = self.loss(log_probs, values,
                            self._discount_rewards(rewards, gamma=gamma))
-        gradients = tape.gradient(losses, self.net.trainable_variables)
+        gradients = tape.gradient(losses, self.net.trainable_variables + self.value.trainable_variables)
         self.optimizer.apply_gradients(
-            zip(gradients, self.net.trainable_variables))
+            zip(gradients, self.net.trainable_variables + self.value.trainable_variables))
 
         return losses
 
