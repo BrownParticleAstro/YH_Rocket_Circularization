@@ -2,6 +2,7 @@ import tensorflow as tf
 import wandb
 import numpy as np
 import time
+import os
 
 
 def create_mlp(dims):
@@ -121,7 +122,7 @@ class PolicyNetwork(tf.keras.Model):
 
         return log_probs, rewards
 
-    def train(self, env, episodes=2000, gamma=0.9, vdo_rate=100):
+    def train(self, env, episodes=2000, gamma=0.9, vdo_rate=100, save_rate=100):
         '''
         Train the policy network with policy gradients
 
@@ -138,9 +139,12 @@ class PolicyNetwork(tf.keras.Model):
         # Train for some eposodes
         for episode in range(episodes):
             with tf.GradientTape() as tape:
+                print(f'Episode: {episode}')
+
                 start_time = time.time()
                 episode_data = self._simulate_step(env)
                 simulation_time = time.time() - start_time
+
                 start_time = time.time()
                 policy_loss = self._train_step(*episode_data, gamma, tape)
                 train_time = time.time() - start_time
@@ -148,21 +152,33 @@ class PolicyNetwork(tf.keras.Model):
                 total_rewards = sum(episode_data[-1])
 
                 # Log the training states
-                print(f'Episode: {episode}, Iterations: {self.iters}, Rewards: {total_rewards:.3f}, Loss: {policy_loss.numpy():.3f}, SimuTime: {simulation_time:.2f}, TrainTime: {train_time:.2f}')
+                print(
+                    f'Iterations: {self.iters}, Rewards: {total_rewards:.3f}, Loss: {policy_loss.numpy():.3f}, SimuTime: {simulation_time:.2f}, TrainTime: {train_time:.2f}')
 
                 wandb.log({
                     'iterations': self.iters,
                     'rewards': total_rewards,
                     'loss': policy_loss.numpy()
                 })
-                self.save_weights('model.tf')
-                wandb.save('model.tf')
 
                 if episode % vdo_rate == 0:
-                    vdo_path = f'{episode}.mp4'
+                    media_path = os.path.join(wandb.run.dir, 'media')
+                    if not os.path.exists(os.path.join(wandb.run.dir, 'media')):
+                        os.makedirs(media_path)
+
+                    vdo_path = os.path.join(media_path, f'{episode}.mp4')
                     self.play(env, vdo_path)
                     wandb.log(
                         {'play_test': wandb.Video(vdo_path, format='mp4')})
+
+                if episode % save_rate == 0:
+                    model_path = os.path.join(wandb.run.dir, 'model')
+                    if not os.path.exists(os.path.join(wandb.run.dir, 'model')):
+                        os.makedirs(model_path)
+
+                    save_path = os.path.join(media_path, 'model.tf')
+                    self.save_weights(save_path)
+                    wandb.save(save_path)
 
     def play(self, env, vdo_path='play.mp4'):
         '''
@@ -230,7 +246,8 @@ class PolicyNetworkBaseline(PolicyNetwork):
         '''
         losses = self.loss(log_probs, values,
                            self._discount_rewards(rewards, gamma=gamma))
-        gradients = tape.gradient(losses, self.net.trainable_variables + self.value.trainable_variables)
+        gradients = tape.gradient(
+            losses, self.net.trainable_variables + self.value.trainable_variables)
         self.optimizer.apply_gradients(
             zip(gradients, self.net.trainable_variables + self.value.trainable_variables))
 
