@@ -178,7 +178,7 @@ class PolicyNetwork(tf.keras.Model):
 
                     save_path = os.path.join(media_path, 'model.tf')
                     self.save_weights(save_path)
-                    wandb.save(save_path)
+                    wandb.save(save_path + '*')
 
     def play(self, env, vdo_path='play.mp4'):
         '''
