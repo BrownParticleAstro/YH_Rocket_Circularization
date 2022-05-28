@@ -1,8 +1,9 @@
-from csv import writer
+from matplotlib.patches import FancyArrowPatch as Arrow
+from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.animation import FuncAnimation
-from matplotlib.patches import FancyArrowPatch as Arrow
+import matplotlib
+matplotlib.use('TkAgg')
 plt.style.use('seaborn-pastel')
 
 
@@ -21,7 +22,7 @@ class RocketAnimation(object):
             t_vec_len: the scale of the thrust vector
         '''
 
-        self.fig = plt.figure(figsize=(6, 6))
+        self.fig = plt.figure(figsize=(4, 4), num=1, clear=True)
         self.ax = plt.axes(xlim=xlim, ylim=ylim)
         self.t_vec_len = t_vec_len
         self.line, = self.ax.plot([], [], marker='o', markersize=markersize)

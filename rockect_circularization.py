@@ -1,4 +1,3 @@
-from email.policy import default
 import numpy as np
 from animation import *
 from bounds import Bounds, DEFAULT_BOUNDS
@@ -83,7 +82,7 @@ class RocketCircularization(object):
 
         self.done = False
 
-        self.animation = RocketAnimation()
+        self.animation = None
         self.t_vec_len = t_vec_len
         self.polar = polar
 
@@ -110,7 +109,6 @@ class RocketCircularization(object):
         
         # Initialize animation
         limits = (- self.max_radius - 0.2, self.max_radius + 0.2)
-        plt.close(self.animation.fig)
         self.animation = RocketAnimation(
             r_min=self.min_radius, r_target=self.target_radius, r_max=self.max_radius,
             xlim=limits, ylim=limits, t_vec_len=self.t_vec_len)
