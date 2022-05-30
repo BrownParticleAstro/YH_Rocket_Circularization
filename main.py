@@ -1,5 +1,5 @@
-from rockect_circularization import RocketCircularization
-from VPG import PolicyNetworkBaseline
+from .rockect_circularization import RocketCircularization
+from .VPG import PolicyNetworkBaseline
 import numpy as np
 import wandb
 project_name = 'Rocket Circularization'
