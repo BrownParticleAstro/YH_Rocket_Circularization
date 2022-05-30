@@ -1,6 +1,7 @@
 import numpy as np
 from animation import RocketAnimation
 from bounds import Bounds, DEFAULT_BOUNDS
+from initial_condition import InitialCondition, DEFAULT_INITIAL_CONDITION
 
 
 class RocketCircularization(object):
@@ -26,14 +27,17 @@ class RocketCircularization(object):
         '''
 
         # initialize the board
-        if isinstance(init_state, list):
-            init_state = np.array(init_state, dtype=np.float32)
         if isinstance(thrust_vectors, list):
             thrust_vectors = np.array(thrust_vectors, dtype=np.float32)
         
-        self.init_state = init_state
-        self.state = init_state
-        self.state_space_dim = init_state.shape[0]
+        if isinstance(init_state, list) or isinstance(init_state, np.ndarray):
+            self.init_state = InitialCondition('constant', {'value': init_state})
+        elif isinstance(init_state, dict):
+            self.init_state = InitialCondition(**init_state)
+            
+        self.state = self.init_state.get_initial_condition()
+        
+        self.state_space_dim = self.state.shape[0]
         if not self.state_space_dim % 2 == 0:
             raise ValueError(
                 'The number of states should be divisible by 2, representing both position and velocity')
@@ -95,10 +99,14 @@ class RocketCircularization(object):
         return: The state after update
         '''
         if init_state is None:
-            init_state = self.init_state
+            init_state = self.init_state.get_initial_condition()
         if not init_state.shape[0] == self.dims * 2:
             raise ValueError(f'The number of states should be {self.dims}')
+        
+        # Reset the initial condition
         self.state = init_state
+        self.init_state.reset()
+        
         self.iters = 0
         self.simulation_steps = 0
         self.done = False
@@ -106,6 +114,7 @@ class RocketCircularization(object):
         # Reset the bounds
         self.bounds.reset()
         self.min_radius, self.max_radius = self.bounds.get_bounds(self.iters)
+        
         
         # Initialize animation
         limits = (- self.max_radius - 0.2, self.max_radius + 0.2)

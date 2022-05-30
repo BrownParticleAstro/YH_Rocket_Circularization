@@ -1,5 +1,6 @@
-from .rocket_circularization import RocketCircularization
-from .VPG import PolicyNetworkBaseline
+from initial_condition import DEFAULT_INITIAL_CONDITION
+from rocket_circularization import RocketCircularization
+from VPG import PolicyNetworkBaseline
 import numpy as np
 import wandb
 project_name = 'Rocket Circularization'
@@ -10,6 +11,7 @@ config_network = {
     'critic_hidden_dims': [32, 32],
     'lr': 0.001
 }
+config_init_cond = DEFAULT_INITIAL_CONDITION
 config_bounds = {
     'rmin_func': 'exponential',
     'rmin_strategy': [
@@ -52,7 +54,7 @@ config_env = {
     'M': 1,
     'm': 0.01,
     'G': 1,
-    'init_state': [1, 0, 0, 1.1],
+    'init_state': config_init_cond,
     'thrust_vectors': [[.1, 0], [0, .1], [-.1, 0], [0, -.1]],
     'evaluation_penalty': 1,
     'inbounds_reward': 1,
