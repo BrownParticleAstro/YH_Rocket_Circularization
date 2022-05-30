@@ -1,6 +1,6 @@
 import numpy as np
-from .animation import RocketAnimation
-from .bounds import Bounds, DEFAULT_BOUNDS
+from animation import RocketAnimation
+from bounds import Bounds, DEFAULT_BOUNDS
 
 
 class RocketCircularization(object):
