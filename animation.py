@@ -3,7 +3,7 @@ from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 plt.style.use('seaborn-pastel')
 
 
