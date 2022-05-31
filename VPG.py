@@ -136,6 +136,9 @@ class PolicyNetwork(tf.keras.Model):
         wandb.define_metric("loss", summary="min")
         wandb.define_metric("rewards", summary="max")
         wandb.define_metric("iterations", summary='min')
+        
+        max_iters = 0
+        
         # Train for some eposodes
         for episode in range(episodes):
             with tf.GradientTape() as tape:
@@ -160,6 +163,29 @@ class PolicyNetwork(tf.keras.Model):
                     'rewards': total_rewards,
                     'loss': policy_loss.numpy()
                 })
+                
+                if self.iters > max_iters:
+                    max_iters = self.iters
+                    
+                    print('Saving best model..')
+                    
+                    model_path = os.path.join(wandb.run.dir, 'best_model')
+                    if not os.path.exists(os.path.join(wandb.run.dir, 'best_model')):
+                        os.makedirs(model_path)
+
+                    save_path = os.path.join(model_path, 'best_model.ckpt')
+                    self.save_weights(save_path)
+                    wandb.save(save_path + '*', base_path=wandb.run.dir)
+                    
+                    
+                    media_path = os.path.join(wandb.run.dir, 'media')
+                    if not os.path.exists(os.path.join(wandb.run.dir, 'media')):
+                        os.makedirs(media_path)
+
+                    vdo_path = os.path.join(media_path, f'{episode}.mp4')
+                    self.play(env, vdo_path)
+                    wandb.log(
+                        {'play_test': wandb.Video(vdo_path, format='mp4')})
 
                 if episode % vdo_rate == 0:
                     media_path = os.path.join(wandb.run.dir, 'media')
@@ -176,9 +202,9 @@ class PolicyNetwork(tf.keras.Model):
                     if not os.path.exists(os.path.join(wandb.run.dir, 'model')):
                         os.makedirs(model_path)
 
-                    save_path = os.path.join(media_path, 'model.tf')
+                    save_path = os.path.join(model_path, 'model.ckpt')
                     self.save_weights(save_path)
-                    wandb.save(save_path + '*')
+                    wandb.save(save_path + '*', base_path=wandb.run.dir)
 
     def play(self, env, vdo_path='play.mp4'):
         '''
