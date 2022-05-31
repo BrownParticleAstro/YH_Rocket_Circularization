@@ -11,7 +11,10 @@ config_network = {
     'critic_hidden_dims': [32, 32],
     'lr': 0.001
 }
-config_init_cond = DEFAULT_INITIAL_CONDITION
+config_init_cond = {
+    'function': 'rotated_state', 
+    'parameters': { 'st': [1, 0, 0, 1.1], 'random': True }
+}
 config_bounds = {
     'rmin_func': 'exponential',
     'rmin_strategy': [
@@ -60,7 +63,7 @@ config_env = {
     'inbounds_reward': 1,
     'thrust_penalty': .1,
     't_vec_len': 1,
-    'polar': True
+    'state_output_mode': 'No Theta'
 }
 config_training = {
     'episodes': 100000,
@@ -69,11 +72,9 @@ config_training = {
     'save_rate': 100,
 }
 
-with wandb.init(project=project_name, config={**config_network, **config_env, **config_training, **config_bounds}) as run:
-    dims = 2
-    num_thrusters = 4
-    rocket_policy = PolicyNetworkBaseline(input_dims=dims * 2,
-                                            output_dims=2 ** num_thrusters,
-                                            **config_network)
+with wandb.init(project='my-test-project', config={**config_network, **config_env, **config_training, **config_bounds}) as run:
     env = RocketCircularization(bound_config=config_bounds, **config_env)
+    rocket_policy = PolicyNetworkBaseline(input_dims=env.get_state_dims(),
+                                            output_dims=env.get_action_dims(),
+                                            **config_network)
     rocket_policy.train(env, **config_training)

@@ -12,7 +12,7 @@ class RocketCircularization(object):
     def __init__(self, max_iter=1000, evaluation_steps=2000,  radius_range=[0.1, 10], target_radius=1,
                  dt=0.01, M=1, m=0.01, G=1, bound_config=DEFAULT_BOUNDS,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]],
-                 evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, t_vec_len=1, polar=False):
+                 evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, t_vec_len=1, state_output_mode='Cartesian'):
         '''
         Initialize the Rocket Circularization game environment
 
@@ -69,6 +69,30 @@ class RocketCircularization(object):
         self.action_space_size = 2 ** self.num_thrusters
 
         # Calculate Thrust for each action
+        self._thrust_acc_and_penalties()
+
+        self.done = False
+
+        self.animation = None
+        self.t_vec_len = t_vec_len
+        
+        output_dims = {
+            'Cartesian': self.state_space_dim,
+            'Polar': self.state_space_dim,
+            'No Theta': self.state_space_dim - 1
+        }
+        
+        self.state_output_dims = output_dims[state_output_mode]
+        self.polar = state_output_mode in {'Polar', 'No Theta'}
+        self.state_output_mode = state_output_mode
+        
+    def get_state_dims(self):
+        return self.state_output_dims
+    
+    def get_action_dims(self):
+        return self.action_space_size
+        
+    def _thrust_acc_and_penalties(self):
         self.thrust_accelerations = []
         self.thrust_penalties = []
         for action in range(self.action_space_size):
@@ -83,12 +107,6 @@ class RocketCircularization(object):
             self.thrust_penalties.append(thrust_penalty)
         self.thrust_accelerations = np.array(self.thrust_accelerations)
         self.thrust_penalties = np.array(self.thrust_penalties)
-
-        self.done = False
-
-        self.animation = None
-        self.t_vec_len = t_vec_len
-        self.polar = polar
 
     def reset(self, init_state=None):
         '''
@@ -123,7 +141,18 @@ class RocketCircularization(object):
             xlim=limits, ylim=limits, t_vec_len=self.t_vec_len)
         self.animation.render(init_state, np.array([0, 0]), self.min_radius, self.target_radius, self.max_radius)
         
-        return self.state
+        return self._state_transform()
+    
+    def _state_transform(self):
+        if self.polar:
+            state = self._cartesian_to_polar(self.state)
+        else:
+            state = self.state
+            
+        if self.state_output_mode == 'No Theta':
+            state = state[[0, 2, 3]]
+            
+        return state
 
     def _reward(self, pos):
         '''
@@ -222,10 +251,7 @@ class RocketCircularization(object):
                 
         self.animation.render(self.state, thrust_acc, self.min_radius, self.target_radius, self.max_radius)
         
-        if self.polar:
-            state = self._cartesian_to_polar(self.state)
-        else:
-            state = self.state
+        state = self._state_transform()
 
         return state, reward, self.done, info
     
