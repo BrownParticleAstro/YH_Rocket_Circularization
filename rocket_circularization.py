@@ -216,8 +216,7 @@ class RocketCircularization(object):
             v = v + total_force / self.m * self.dt
             r = r + v * self.dt
             # reward for staying inbounds 
-            # reward += (self.inbounds_reward - self.thrust_penalties[action] * self.thrust_penalty) * self.dt
-            reward += self.dt
+            reward += (self.inbounds_reward - self.thrust_penalties[action] * self.thrust_penalty) * self.dt
             self.simulation_steps += 1
             # If out-of-bounds, end the game
             if np.linalg.norm(r) > self.max_radius or np.linalg.norm(r) < self.min_radius:
