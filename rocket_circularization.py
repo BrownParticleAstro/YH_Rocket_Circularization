@@ -12,7 +12,8 @@ class RocketCircularization(object):
     def __init__(self, max_iter=1000, evaluation_steps=2000,  radius_range=[0.1, 10], target_radius=1,
                  dt=0.01, M=1, m=0.01, G=1, bound_config=DEFAULT_BOUNDS,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]],
-                 evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, t_vec_len=1, state_output_mode='Cartesian'):
+                 evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1,
+                 t_vec_len=1, state_output_mode='Cartesian'):
         '''
         Initialize the Rocket Circularization game environment
 
@@ -56,6 +57,7 @@ class RocketCircularization(object):
         self.m = m
         self.G = G
         
+        self.circularization_penalty = circularization_penalty
         self.evaluation_penalty = evaluation_penalty
         self.inbounds_reward = inbounds_reward
         self.thrust_penalty = thrust_penalty
@@ -216,7 +218,7 @@ class RocketCircularization(object):
             v = v + total_force / self.m * self.dt
             r = r + v * self.dt
             # reward for staying inbounds 
-            reward += (self.inbounds_reward - self.thrust_penalties[action] * self.thrust_penalty) * self.dt
+            reward += (self._reward(r) * self.circularization_penalty + self.inbounds_reward - self.thrust_penalties[action] * self.thrust_penalty) * self.dt
             self.simulation_steps += 1
             # If out-of-bounds, end the game
             if np.linalg.norm(r) > self.max_radius or np.linalg.norm(r) < self.min_radius:

@@ -12,38 +12,22 @@ config_network = {
     'lr': 0.001
 }
 config_init_cond = {
-    'function': 'rotated_state', 
-    'parameters': { 'st': [1, 0, 0, 1.1], 'random': True }
+    'function': 'rotated_state',
+    'parameters': {'st': [1, 0, 0, 1.1], 'random': True}
 }
 config_bounds = {
-    'rmin_func': 'exponential',
+    'rmin_func': 'constant',
     'rmin_strategy': [
         {
             'name': 'constant',
-            'parameters': {'const': 0.8}
-        },
-        {
-            'name': 'constant',
-            'parameters': {'const': 0.99}
-        },
-        {
-            'name': 'constant',
-            'parameters': {'const': np.exp(-4)}
+            'parameters': {'const': 0.1}
         }
     ],
-    'rmax_func': 'exponential',
+    'rmax_func': 'constant',
     'rmax_strategy': [
         {
             'name': 'constant',
-            'parameters': {'const': 1.2}
-        },
-        {
-            'name': 'constant',
-            'parameters': {'const': 1.01}
-        },
-        {
-            'name': 'constant',
-            'parameters': {'const': np.exp(-4)}
+            'parameters': {'const': 2}
         }
     ]
 }
@@ -59,22 +43,23 @@ config_env = {
     'G': 1,
     'init_state': config_init_cond,
     'thrust_vectors': [[.1, 0], [0, .1], [-.1, 0], [0, -.1]],
+    'circularization_penalty': 1,
     'evaluation_penalty': 1,
     'inbounds_reward': 1,
-    'thrust_penalty': .1,
+    'thrust_penalty': 0,
     't_vec_len': 1,
     'state_output_mode': 'No Theta'
 }
 config_training = {
     'episodes': 100000,
     'gamma': 1,
-    'vdo_rate': 1000, 
+    'vdo_rate': 1000,
     'save_rate': 100,
 }
 
-with wandb.init(project='my-test-project', config={**config_network, **config_env, **config_training, **config_bounds}) as run:
+with wandb.init(project=project_name, config={**config_network, **config_env, **config_training, **config_bounds}) as run:
     env = RocketCircularization(bound_config=config_bounds, **config_env)
     rocket_policy = PolicyNetworkBaseline(input_dims=env.get_state_dims(),
-                                            output_dims=env.get_action_dims(),
-                                            **config_network)
+                                          output_dims=env.get_action_dims(),
+                                          **config_network)
     rocket_policy.train(env, **config_training)

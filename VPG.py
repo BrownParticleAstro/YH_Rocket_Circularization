@@ -137,8 +137,6 @@ class PolicyNetwork(tf.keras.Model):
         wandb.define_metric("rewards", summary="max")
         wandb.define_metric("iterations", summary='min')
         
-        max_iters = 0
-        
         # Train for some eposodes
         for episode in range(episodes):
             with tf.GradientTape() as tape:
@@ -153,6 +151,9 @@ class PolicyNetwork(tf.keras.Model):
                 train_time = time.time() - start_time
 
                 total_rewards = sum(episode_data[-1])
+                
+                if episode == 0:
+                    max_rwd = total_rewards - 1
 
                 # Log the training states
                 print(
@@ -164,8 +165,8 @@ class PolicyNetwork(tf.keras.Model):
                     'loss': policy_loss.numpy()
                 })
                 
-                if self.iters > max_iters:
-                    max_iters = self.iters
+                if total_rewards > max_rwd:
+                    max_rwd = total_rewards
                     
                     print('Saving best model..')
                     
