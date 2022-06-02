@@ -13,7 +13,7 @@ class RocketCircularization(object):
                  dt=0.01, M=1, m=0.01, G=1, bound_config=DEFAULT_BOUNDS,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]], max_thrust=.1,
                  evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1,
-                 t_vec_len=1, state_output_mode='Cartesian', thrust_mode='On-off', thrust_direction='Polar'):
+                 t_vec_len=1, state_output_mode='Cartesian', thrust_mode='On-off', thrust_direction='Polar', clip=True):
         '''
         Initialize the Rocket Circularization game environment
 
@@ -73,6 +73,7 @@ class RocketCircularization(object):
 
         self.thrust_mode = thrust_mode
         self.thrust_direction = thrust_direction
+        self.clip = clip
         # Calculate Thrust for each action
         if self.thrust_mode == 'On-off':
             self._thrust_acc_and_penalties()
@@ -108,10 +109,11 @@ class RocketCircularization(object):
             thrust_penalty = self.thrust_penalties[action]
         elif self.thrust_mode == 'Continuous':
             thrust_acc = action
-            thrust_acc_magnitude = np.linalg.norm(thrust_acc)
-            if thrust_acc_magnitude > 1:
-                thrust_acc = thrust_acc / thrust_acc_magnitude
-            thrust_acc = thrust_acc * self.max_thrust
+            if self.clip:
+                thrust_acc_magnitude = np.linalg.norm(thrust_acc)
+                if thrust_acc_magnitude > 1:
+                    thrust_acc = thrust_acc / thrust_acc_magnitude
+                thrust_acc = thrust_acc * self.max_thrust
             thrust_penalty = np.linalg.norm(thrust_acc)
         
         if self.thrust_direction == 'Polar':
