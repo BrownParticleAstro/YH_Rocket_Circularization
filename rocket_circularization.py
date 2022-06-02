@@ -216,10 +216,6 @@ class RocketCircularization(object):
           done: bool, if the simulation is finished
           info: dict, information about the environment (NOT IMPLEMENTED)
         '''
-        if not (action >= 0 and action < self.action_space_size):
-            raise ValueError(
-                f'Action should be an integer between 0 and {self.action_space_size}')
-
         if self.done:
             print('Warning: Stepping after done is True')
 
