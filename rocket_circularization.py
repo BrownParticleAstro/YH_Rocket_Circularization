@@ -9,7 +9,7 @@ class RocketCircularization(object):
     A Rocket Circularization Game Environment
     '''
 
-    def __init__(self, max_iter=1000, evaluation_steps=2000,  radius_range=[0.1, 10], target_radius=1,
+    def __init__(self, max_iter=1000, evaluation_steps=2000, iter_steps=10, radius_range=[0.1, 10], target_radius=1,
                  dt=0.01, M=1, m=0.01, G=1, bound_config=DEFAULT_BOUNDS,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]],
                  evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1,
@@ -47,6 +47,7 @@ class RocketCircularization(object):
         self.evaluation_steps = evaluation_steps
         self.iters = 0
         self.simulation_steps = 0
+        self.iter_steps = iter_steps
         self.min_radius = radius_range[0]
         self.max_radius = radius_range[1]
         self.target_radius = target_radius
@@ -175,7 +176,7 @@ class RocketCircularization(object):
         theta_dot = vel @ theta_hat
         return np.array([r, theta, r_dot, theta_dot])
 
-    def step(self, action, time_steps=10):
+    def step(self, action):
         '''
         Move to the next step of the simulation with the forces provided. Calculates the new state and the rewards
 
@@ -206,7 +207,7 @@ class RocketCircularization(object):
         # Read the new bounds
         self.min_radius, self.max_radius = self.bounds.get_bounds(self.iters)
 
-        for _ in range(time_steps):
+        for _ in range(self.iter_steps):
             # Calculate total force
             gravitational_force = - (self.G * self.M * self.m) / \
                 np.power(np.linalg.norm(r), 3) * r  # F = - GMm/|r|^3 * r
