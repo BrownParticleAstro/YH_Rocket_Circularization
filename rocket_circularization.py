@@ -77,7 +77,7 @@ class RocketCircularization(object):
         if self.thrust_mode == 'On-off':
             self._thrust_acc_and_penalties()
             self.action_space_size = 2
-        elif self.thrust_model == 'Continuous':
+        elif self.thrust_mode == 'Continuous':
             self.max_thrust = max_thrust
 
         self.done = False
