@@ -9,7 +9,7 @@ def constant(value):
 
 def rotated_state(st, random, theta=0):
     def func(_):
-        nonlocal st
+        nonlocal st, theta
         
         if random:
             theta = np.random.uniform(0, 2 * np.pi)
