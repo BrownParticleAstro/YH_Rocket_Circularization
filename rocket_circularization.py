@@ -10,10 +10,11 @@ class RocketCircularization(object):
     '''
 
     def __init__(self, max_iter=1000, evaluation_steps=2000, iter_steps=10, radius_range=[0.1, 10], target_radius=1,
-                 dt=0.01, M=1, m=0.01, G=1, bound_config=DEFAULT_BOUNDS,
+                 dt=0.01, M=1, m=0.01, G=1, bound_config=None,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]], max_thrust=.1,
                  evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1,
-                 t_vec_len=1, state_output_mode='Cartesian', thrust_mode='On-off', thrust_direction='Polar', clip=True):
+                 t_vec_len=1, state_output_mode='Cartesian', state_target_r=False, state_target_l=False,
+                 thrust_mode='On-off', thrust_direction='Polar', clip=True):
         '''
         Initialize the Rocket Circularization game environment
 
@@ -48,10 +49,9 @@ class RocketCircularization(object):
         self.iters = 0
         self.simulation_steps = 0
         self.iter_steps = iter_steps
-        self.min_radius = radius_range[0]
-        self.max_radius = radius_range[1]
+        
+        self._init_bounds(bound_config, radius_range)
         self.target_radius = target_radius
-        self.bounds = Bounds(**bound_config)
 
         self.dt = dt
         self.M = M
@@ -92,7 +92,9 @@ class RocketCircularization(object):
             'No Theta': self.state_space_dim - 1
         }
         
-        self.state_output_dims = output_dims[state_output_mode]
+        self.state_output_dims = output_dims[state_output_mode] + sum(state_target_r, state_target_l)
+        self.state_target_r = state_target_r
+        self.state_target_l = state_target_l
         self.polar = state_output_mode in {'Polar', 'No Theta'}
         self.state_output_mode = state_output_mode
         
@@ -139,6 +141,29 @@ class RocketCircularization(object):
             self.thrust_penalties.append(thrust_penalty)
         self.thrust_accelerations = np.array(self.thrust_accelerations)
         self.thrust_penalties = np.array(self.thrust_penalties)
+        
+    def _init_bounds(self, bound_config, radius_range):
+        if bound_config is None:
+            bound_config = {
+                'rmin_func': 'constant',
+                'rmin_strategy': [
+                    {
+                        'name': 'constant',
+                        'parameters': {'const': radius_range[0]}
+                    }
+                ],
+                'rmax_func': 'constant',
+                'rmax_strategy': [
+                    {
+                        'name': 'constant',
+                        'parameters': {'const': radius_range[1]}
+                    }
+                ]
+            }
+            
+        self.bounds = Bounds(**bound_config)
+
+        self.min_radius, self.max_radius = self.bounds.get_bounds(0)
 
     def reset(self, init_state=None):
         '''
@@ -183,6 +208,13 @@ class RocketCircularization(object):
             
         if self.state_output_mode == 'No Theta':
             state = state[[0, 2, 3]]
+            
+        if self.state_target_r:
+            state = np.array([*state, self.target_radius])
+            
+        if self.state_target_l:
+            print('Warning: Only Circular')
+            state = np.array([*state, np.sqrt(self.target_radius * self.G * self.M)])
             
         return state
 
