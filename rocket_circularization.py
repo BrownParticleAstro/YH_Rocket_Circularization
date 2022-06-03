@@ -92,7 +92,7 @@ class RocketCircularization(object):
             'No Theta': self.state_space_dim - 1
         }
         
-        self.state_output_dims = output_dims[state_output_mode] + sum(state_target_r, state_target_l)
+        self.state_output_dims = output_dims[state_output_mode] + sum([state_target_r, state_target_l])
         self.state_target_r = state_target_r
         self.state_target_l = state_target_l
         self.polar = state_output_mode in {'Polar', 'No Theta'}
