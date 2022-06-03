@@ -28,7 +28,7 @@ class RocketAnimation(object):
         self.arrow = Arrow(posA=(0, 0), posB=(
             0, 0), arrowstyle='simple', mutation_scale=10, color='r')
         self.ax.add_patch(self.arrow)
-        self.line, = self.ax.plot([], [], marker='o', markersize=markersize)
+        self.line, = self.ax.plot([], [], marker='o', markersize=markersize, alpha=0.1)
 
         self.min_circle, = self.ax.plot(
             *self._circle(r_min), '--', label='Minimum Radius')
