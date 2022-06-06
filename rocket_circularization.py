@@ -234,7 +234,7 @@ class RocketCircularization(object):
         theta_hat = np.array([-r_hat[1], r_hat[0]])
         theta = np.arctan2(pos[1], pos[0])
         r_dot = vel @ r_hat
-        theta_dot = vel @ theta_hat
+        theta_dot = vel @ theta_hat / r
         return np.array([r, theta, r_dot, theta_dot])
 
     def step(self, action):
