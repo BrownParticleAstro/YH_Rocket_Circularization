@@ -10,7 +10,7 @@ class RocketCircularization(object):
     '''
 
     def __init__(self, max_iter=1000, evaluation_steps=2000, iter_steps=10, radius_range=[0.1, 10], target_radius=1,
-                 dt=0.01, M=1, m=0.01, G=1, bound_config=None,
+                 dt=0.01, M=1, m=0.01, G=1, bound_config=None, ignore_bounds=False,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]], max_thrust=.1,
                  evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1,
                  t_vec_len=1, state_output_mode='Cartesian', state_target_r=False, state_target_l=False,
@@ -50,7 +50,9 @@ class RocketCircularization(object):
         self.simulation_steps = 0
         self.iter_steps = iter_steps
         
+        if not ignore_bounds:
         self._init_bounds(bound_config, radius_range)
+        self.ignore_bounds = ignore_bounds
         self.target_radius = target_radius
 
         self.dt = dt
@@ -276,6 +278,7 @@ class RocketCircularization(object):
             reward += (self._reward(r) * self.circularization_penalty + self.inbounds_reward - thrust_penalty * self.thrust_penalty) * self.dt
             self.simulation_steps += 1
             # If out-of-bounds, end the game
+            if not self.ignore_bounds:
             if np.linalg.norm(r) > self.max_radius or np.linalg.norm(r) < self.min_radius:
                 print('Out-of-Bounds')
                 # reward -= 1e6 / self.simulation_steps + 1e3
