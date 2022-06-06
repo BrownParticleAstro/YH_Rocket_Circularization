@@ -12,7 +12,7 @@ class RocketCircularization(object):
     def __init__(self, max_iter=1000, evaluation_steps=2000, iter_steps=10, radius_range=[0.1, 10], target_radius=1,
                  dt=0.01, M=1, m=0.01, G=1, bound_config=None, ignore_bounds=False,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]], max_thrust=.1,
-                 evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1,
+                 evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1, ang_momentum_penalty=0,
                  t_vec_len=1, state_output_mode='Cartesian', state_target_r=False, state_target_l=False,
                  thrust_mode='On-off', thrust_direction='Polar', clip=True):
         '''
@@ -51,7 +51,7 @@ class RocketCircularization(object):
         self.iter_steps = iter_steps
         
         if not ignore_bounds:
-        self._init_bounds(bound_config, radius_range)
+            self._init_bounds(bound_config, radius_range)
         self.ignore_bounds = ignore_bounds
         self.target_radius = target_radius
 
@@ -61,6 +61,7 @@ class RocketCircularization(object):
         self.G = G
         
         self.circularization_penalty = circularization_penalty
+        self.ang_momentum_penalty = ang_momentum_penalty
         self.evaluation_penalty = evaluation_penalty
         self.inbounds_reward = inbounds_reward
         self.thrust_penalty = thrust_penalty
@@ -220,13 +221,24 @@ class RocketCircularization(object):
             
         return state
 
-    def _reward(self, pos):
+    def _reward(self, state):
         '''
         Return the reward at a given position
 
         pos: np.array (self.dim, )
         '''
-        return -np.absolute(np.linalg.norm(pos) - self.target_radius)
+        state = np.array(state)
+        pos, vel = state[:2], state[2:]
+        l0 = np.sqrt(self.target_radius * self.G * self.M)
+        # r = np.linalg.norm(pos)
+        # rhat = pos / r
+        # thetahat = [-rhat[1], rhat[0]]
+        # thetadot = vel @ thetahat / r
+        l = pos[0] * vel[1] - pos[1] * vel[0]
+        circularization_penalty =  -np.absolute(np.linalg.norm(pos) - self.target_radius) * self.circularization_penalty 
+        ang_momentum_penalty = -np.absolute(l - l0) * self.ang_momentum_penalty
+        
+        return circularization_penalty + ang_momentum_penalty
     
     def _cartesian_to_polar(self, state):
         pos = state[:2]
@@ -275,15 +287,15 @@ class RocketCircularization(object):
             v = v + total_force / self.m * self.dt
             r = r + v * self.dt
             # reward for staying inbounds 
-            reward += (self._reward(r) * self.circularization_penalty + self.inbounds_reward - thrust_penalty * self.thrust_penalty) * self.dt
+            reward += (self._reward([*r, *v]) + self.inbounds_reward - thrust_penalty * self.thrust_penalty) * self.dt
             self.simulation_steps += 1
             # If out-of-bounds, end the game
             if not self.ignore_bounds:
-            if np.linalg.norm(r) > self.max_radius or np.linalg.norm(r) < self.min_radius:
-                print('Out-of-Bounds')
-                # reward -= 1e6 / self.simulation_steps + 1e3
-                self.done = True
-                break
+                if np.linalg.norm(r) > self.max_radius or np.linalg.norm(r) < self.min_radius:
+                    print('Out-of-Bounds')
+                    # reward -= 1e6 / self.simulation_steps + 1e3
+                    self.done = True
+                    break
         
 
         self.state = np.concatenate((r, v), axis=0)
