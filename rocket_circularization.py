@@ -50,8 +50,7 @@ class RocketCircularization(object):
         self.simulation_steps = 0
         self.iter_steps = iter_steps
         
-        if not ignore_bounds:
-            self._init_bounds(bound_config, radius_range)
+        self._init_bounds(bound_config, radius_range)
         self.ignore_bounds = ignore_bounds
         self.target_radius = target_radius
 
