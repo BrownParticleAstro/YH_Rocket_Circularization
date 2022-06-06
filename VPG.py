@@ -5,12 +5,17 @@ import time
 import os
 
 
-def create_mlp(dims):
+def create_mlp(dims, activation='relu'):
     assert len(dims) >= 2
+    if isinstance(activation, str):
+        activation = [activation] * (len(dims) - 2)
+    if isinstance(activation, list):
+        assert len(activation) == len(dims) - 2
+
     model = tf.keras.Sequential()
     model.add(tf.keras.Input(shape=(dims[0],)))
-    for dim in dims[1:-1]:
-        model.add(tf.keras.layers.Dense(dim, activation='relu'))
+    for dim, active in zip(dims[1:-1], activation):
+        model.add(tf.keras.layers.Dense(dim, activation=active))
     model.add(tf.keras.layers.Dense(dims[-1], activation='log_softmax'))
 
     return model
@@ -136,7 +141,7 @@ class PolicyNetwork(tf.keras.Model):
         wandb.define_metric("loss", summary="min")
         wandb.define_metric("rewards", summary="max")
         wandb.define_metric("iterations", summary='min')
-        
+
         # Train for some eposodes
         for episode in range(episodes):
             with tf.GradientTape() as tape:
@@ -151,7 +156,7 @@ class PolicyNetwork(tf.keras.Model):
                 train_time = time.time() - start_time
 
                 total_rewards = sum(episode_data[-1])
-                
+
                 if episode == 0:
                     max_rwd = total_rewards - 1
 
@@ -164,12 +169,12 @@ class PolicyNetwork(tf.keras.Model):
                     'rewards': total_rewards,
                     'loss': policy_loss.numpy()
                 })
-                
+
                 if total_rewards > max_rwd:
                     max_rwd = total_rewards
-                    
+
                     print('Saving best model..')
-                    
+
                     model_path = os.path.join(wandb.run.dir, 'best_model')
                     if not os.path.exists(os.path.join(wandb.run.dir, 'best_model')):
                         os.makedirs(model_path)
@@ -177,8 +182,7 @@ class PolicyNetwork(tf.keras.Model):
                     save_path = os.path.join(model_path, 'best_model.ckpt')
                     self.save_weights(save_path)
                     wandb.save(save_path + '*', base_path=wandb.run.dir)
-                    
-                    
+
                     media_path = os.path.join(wandb.run.dir, 'media')
                     if not os.path.exists(os.path.join(wandb.run.dir, 'media')):
                         os.makedirs(media_path)
