@@ -71,17 +71,19 @@ class RocketCircularization(object):
         if not self.thrust_vectors.shape == (self.num_thrusters, self.dims):
             raise ValueError(
                 f'The thrust vector should have shape {(self.num_thrusters, self.dims)} (num_thrusters, dims)')
-        self.action_space_size = 2 ** self.num_thrusters
 
         self.thrust_mode = thrust_mode
         self.thrust_direction = thrust_direction
         self.clip = clip
         # Calculate Thrust for each action
         if self.thrust_mode == 'On-off':
+            self.action_space_size = 2 ** self.num_thrusters
             self._thrust_acc_and_penalties()
-            self.action_space_size = 2
         elif self.thrust_mode == 'Continuous':
             self.max_thrust = max_thrust
+            self.action_space_size = 2
+        else:
+            print(f'Warning: Unknown thrust mode {self.thrust_mode}')
 
         self.done = False
 
