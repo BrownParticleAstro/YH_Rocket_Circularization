@@ -8,7 +8,7 @@ plt.style.use('seaborn-pastel')
 
 
 class RocketAnimation(object):
-    def __init__(self, r_min=0.1, r_target=1, r_max=10, xlim=(-10.2, 10.2), ylim=(-10.2, 10.2), markersize=10, t_vec_len=1):
+    def __init__(self, r_min=0.1, r_target=1, r_max=10, xlim=(-10.2, 10.2), ylim=(-10.2, 10.2), markersize=10, circle_alpha=1, t_vec_len=1):
         '''
         Initialize Animation Object
 
@@ -28,7 +28,7 @@ class RocketAnimation(object):
         self.arrow = Arrow(posA=(0, 0), posB=(
             0, 0), arrowstyle='simple', mutation_scale=10, color='r')
         self.ax.add_patch(self.arrow)
-        self.line, = self.ax.plot([], [], marker='o', markersize=markersize, alpha=0.1)
+        self.line, = self.ax.plot([], [], marker='o', markersize=markersize, alpha=circle_alpha)
 
         self.min_circle, = self.ax.plot(
             *self._circle(r_min), '--', label='Minimum Radius')
