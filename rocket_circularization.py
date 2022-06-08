@@ -68,7 +68,7 @@ class RocketCircularization(object):
         
         penalty_functions = {
             'Absolute': np.absolute, 
-            'Square': np.square
+            'Quadratic': np.square
         }
         self.penalty_function = penalty_functions[penalty_mode]
 
