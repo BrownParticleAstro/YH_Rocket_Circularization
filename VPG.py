@@ -271,10 +271,10 @@ class PolicyNetwork(tf.keras.Model):
 
 
 class PolicyNetworkBaseline(PolicyNetwork):
-    def __init__(self, input_dims, actor_hidden_dims, output_dims, critic_hidden_dims, lr=0.001):
+    def __init__(self, input_dims, actor_hidden_dims, output_dims, critic_hidden_dims, output_mode='Discrete', lr=0.001):
 
         super(PolicyNetworkBaseline, self).__init__(
-            input_dims, actor_hidden_dims, output_dims, lr)
+            input_dims, actor_hidden_dims, output_dims, output_mode, lr)
 
         if isinstance(critic_hidden_dims, list):
             self.value = create_mlp([input_dims, *critic_hidden_dims, 1])
