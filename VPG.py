@@ -27,6 +27,8 @@ class PolicyNetwork(tf.keras.Model):
         Initiate a policy network with the indicated dimensions
         '''
         super(PolicyNetwork, self).__init__()
+        
+        print(output_mode)
 
         assert output_mode in {'Discrete', 'Continuous'}
 
