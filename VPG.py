@@ -173,24 +173,28 @@ class PolicyNetwork(tf.keras.Model):
                 if total_rewards > max_rwd:
                     max_rwd = total_rewards
 
-                    print('Saving best model..')
+                    if episode > save_rate:
 
-                    model_path = os.path.join(wandb.run.dir, 'best_model')
-                    if not os.path.exists(os.path.join(wandb.run.dir, 'best_model')):
-                        os.makedirs(model_path)
+                        print('Saving best model..')
 
-                    save_path = os.path.join(model_path, 'best_model.ckpt')
-                    self.save_weights(save_path)
-                    wandb.save(save_path + '*', base_path=wandb.run.dir)
+                        model_path = os.path.join(wandb.run.dir, 'best_model')
+                        if not os.path.exists(os.path.join(wandb.run.dir, 'best_model')):
+                            os.makedirs(model_path)
 
-                    media_path = os.path.join(wandb.run.dir, 'media')
-                    if not os.path.exists(os.path.join(wandb.run.dir, 'media')):
-                        os.makedirs(media_path)
+                        save_path = os.path.join(model_path, 'best_model.ckpt')
+                        self.save_weights(save_path)
+                        wandb.save(save_path + '*', base_path=wandb.run.dir)
 
-                    vdo_path = os.path.join(media_path, f'{episode}.mp4')
-                    self.play(env, vdo_path)
-                    wandb.log(
-                        {'play_test': wandb.Video(vdo_path, format='mp4')})
+                    if episode > vdo_rate:
+
+                        media_path = os.path.join(wandb.run.dir, 'media')
+                        if not os.path.exists(os.path.join(wandb.run.dir, 'media')):
+                            os.makedirs(media_path)
+
+                        vdo_path = os.path.join(media_path, f'{episode}.mp4')
+                        self.play(env, vdo_path)
+                        wandb.log(
+                            {'play_test': wandb.Video(vdo_path, format='mp4')})
 
                 if episode % vdo_rate == 0:
                     media_path = os.path.join(wandb.run.dir, 'media')
