@@ -28,9 +28,9 @@ class PolicyNetwork(tf.keras.Model):
         Initiate a policy network with the indicated dimensions
         '''
         super(PolicyNetwork, self).__init__()
-        
+
         assert output_mode in {'Discrete', 'Continuous'}
-        
+
         if isinstance(hidden_dims, int):
             hidden_dims = [hidden_dims]
 
@@ -39,21 +39,22 @@ class PolicyNetwork(tf.keras.Model):
             final_activation = 'linear'
         if output_mode == 'Discrete':
             final_activation = 'log_softmax'
-        
-        self.net = create_mlp([input_dims, *hidden_dims, output_dims], final_activation=final_activation)
+
+        self.net = create_mlp(
+            [input_dims, *hidden_dims, output_dims], final_activation=final_activation)
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         self.iters = 0
         self.output_mode = output_mode
-        
+
     def _act_discrete(self, state):
         state = state.reshape((1, -1))
         log_probs = self.net(state)
         action = tf.random.categorical(log_probs, 1)[0][0]
         log_prob = log_probs[0][action]
-        
+
         return action.numpy(), log_prob
-    
+
     def _act_continuous(self, state):
         state = state.reshape((1, -1))
         output = self.net(state)[0]
@@ -63,7 +64,7 @@ class PolicyNetwork(tf.keras.Model):
         action = tf.random.normal(mus.shape, mus, sigmas, dtype=tf.float32)
         log_probs = -log_sigmas - tf.pow(((action - mus) / sigmas), 2) / 2
         log_prob = tf.reduce_sum(log_probs)
-        
+
         return action.numpy(), log_prob
 
     def act(self, state):
@@ -216,7 +217,7 @@ class PolicyNetwork(tf.keras.Model):
                         self.save_weights(save_path)
                         wandb.save(save_path + '*', base_path=wandb.run.dir)
 
-                    if episode > vdo_rate:
+                    if episode > save_rate:
 
                         media_path = os.path.join(wandb.run.dir, 'media')
                         if not os.path.exists(os.path.join(wandb.run.dir, 'media')):
