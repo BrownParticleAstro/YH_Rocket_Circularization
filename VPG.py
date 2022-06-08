@@ -278,10 +278,10 @@ class PolicyNetworkBaseline(PolicyNetwork):
         super(PolicyNetworkBaseline, self).__init__(
             input_dims, actor_hidden_dims, output_dims, output_mode, lr)
 
-        if isinstance(critic_hidden_dims, list):
-            self.value = create_mlp([input_dims, *critic_hidden_dims, 1])
-        elif isinstance(critic_hidden_dims, int):
-            self.value = create_mlp([input_dims, critic_hidden_dims, 1])
+        if isinstance(hidden_dims, int):
+            hidden_dims = [hidden_dims]
+            
+        self.value = create_mlp([input_dims, critic_hidden_dims, 1], final_activation='linear')
 
     def loss(self, log_probs, values, discounted_rewards):
         '''
