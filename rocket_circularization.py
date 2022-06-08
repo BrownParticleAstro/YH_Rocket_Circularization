@@ -108,6 +108,13 @@ class RocketCircularization(object):
     
     def get_action_dims(self):
         return self.action_space_size
+
+    def get_thrust_mode(self):
+        thrust_modes = {
+            'On-off': 'Discrete',
+            'Continuous': 'Continuous'
+        }
+        return thrust_modes[self.thrust_mode]
     
     def _get_thrust_and_penalty(self, action):
         if self.thrust_mode == 'On-off':

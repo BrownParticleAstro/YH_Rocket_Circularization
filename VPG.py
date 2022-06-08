@@ -1,3 +1,4 @@
+from typing import final
 import tensorflow as tf
 import wandb
 import numpy as np
@@ -5,7 +6,7 @@ import time
 import os
 
 
-def create_mlp(dims, activation='relu'):
+def create_mlp(dims, activation='relu', final_activation='log_softmax'):
     assert len(dims) >= 2
     if isinstance(activation, str):
         activation = [activation] * (len(dims) - 2)
@@ -16,23 +17,54 @@ def create_mlp(dims, activation='relu'):
     model.add(tf.keras.Input(shape=(dims[0],)))
     for dim, active in zip(dims[1:-1], activation):
         model.add(tf.keras.layers.Dense(dim, activation=active))
-    model.add(tf.keras.layers.Dense(dims[-1], activation='log_softmax'))
+    model.add(tf.keras.layers.Dense(dims[-1], activation=final_activation))
 
     return model
 
 
 class PolicyNetwork(tf.keras.Model):
-    def __init__(self, input_dims, hidden_dims, output_dims, lr=0.001) -> None:
+    def __init__(self, input_dims, hidden_dims, output_dims, output_mode='Discrete', lr=0.001) -> None:
         '''
         Initiate a policy network with the indicated dimensions
         '''
         super(PolicyNetwork, self).__init__()
-        if isinstance(hidden_dims, list):
-            self.net = create_mlp([input_dims, *hidden_dims, output_dims])
-        elif isinstance(hidden_dims, int):
-            self.net = create_mlp([input_dims, hidden_dims, output_dims])
+        
+        assert output_mode in {'Discrete', 'Continuous'}
+        
+        if isinstance(hidden_dims, int):
+            hidden_dims = [hidden_dims]
+
+        if output_mode == 'Continuous':
+            output_dims *= 2
+            final_activation = 'linear'
+        if output_mode == 'Discrete':
+            final_activation = 'log_softmax'
+        
+        self.net = create_mlp([input_dims, *hidden_dims, output_dims], final_activation=final_activation)
+
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         self.iters = 0
+        self.output_mode = output_mode
+        
+    def _act_discrete(self, state):
+        state = state.reshape((1, -1))
+        log_probs = self.net(state)
+        action = tf.random.categorical(log_probs, 1)[0][0]
+        log_prob = log_probs[0][action]
+        
+        return action.numpy(), log_prob
+    
+    def _act_continuous(self, state):
+        state = state.reshape((1, -1))
+        output = self.net(state)[0]
+        mus, log_sigmas = output[:len(output) // 2], output[len(output) // 2:]
+        mus = tf.math.tanh(mus)
+        sigmas = tf.exp(log_sigmas)
+        action = tf.random.normal(mus.shape, mus, sigmas, dtype=tf.float32)
+        log_probs = -log_sigmas - tf.pow(((action - mus) / sigmas), 2) / 2
+        log_prob = tf.reduce_sum(log_probs)
+        
+        return action.numpy(), log_prob
 
     def act(self, state):
         '''
@@ -40,11 +72,10 @@ class PolicyNetwork(tf.keras.Model):
         state: a numpy array (input_dims, ) indicating the current game state
         return: a tuple of the which action taken [0, input_dims) and tf.Tensor indicating log probabilty of this action
         '''
-        state = state.reshape((1, -1))
-        log_probs = self.net(state)
-        action = tf.random.categorical(log_probs, 1)[0][0]
-        log_prob = log_probs[0][action]
-        return action.numpy(), log_prob
+        if self.output_mode == 'Discrete':
+            return self._act_discrete(state)
+        if self.output_mode == 'Continuous':
+            return self._act_continuous(state)
 
     def _discount_rewards(self, rewards, gamma=0.9):
         '''
