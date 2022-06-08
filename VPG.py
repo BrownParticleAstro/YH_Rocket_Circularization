@@ -1,4 +1,3 @@
-from typing import final
 import tensorflow as tf
 import wandb
 import numpy as np

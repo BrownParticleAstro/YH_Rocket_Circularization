@@ -1,4 +1,3 @@
-from turtle import pen
 import numpy as np
 from animation import RocketAnimation
 from bounds import Bounds, DEFAULT_BOUNDS
