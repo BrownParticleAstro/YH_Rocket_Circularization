@@ -27,7 +27,7 @@ class PolicyNetwork(tf.keras.Model):
         Initiate a policy network with the indicated dimensions
         '''
         super(PolicyNetwork, self).__init__()
-        
+
         print(output_mode)
 
         assert output_mode in {'Discrete', 'Continuous'}
@@ -57,6 +57,8 @@ class PolicyNetwork(tf.keras.Model):
         return action.numpy(), log_prob
 
     def _act_continuous(self, state):
+        if np.any(np.isnan(state)):
+            print(f'nan input state {state}')
         state = state.reshape((1, -1))
         output = self.net(state)[0]
         mus, log_sigmas = output[:len(output) // 2], output[len(output) // 2:]
@@ -65,6 +67,10 @@ class PolicyNetwork(tf.keras.Model):
         action = tf.random.normal(mus.shape, mus, sigmas, dtype=tf.float32)
         log_probs = -log_sigmas - tf.pow(((action - mus) / sigmas), 2) / 2
         log_prob = tf.reduce_sum(log_probs)
+        if tf.reduce_any(tf.math.is_nan(action)):
+            print(f'nan action {action}')
+        if tf.math.is_nan(log_prob):
+            print(f'nan log probability {action}')
 
         return action.numpy(), log_prob
 
@@ -280,8 +286,9 @@ class PolicyNetworkBaseline(PolicyNetwork):
 
         if isinstance(critic_hidden_dims, int):
             critic_hidden_dims = [critic_hidden_dims]
-            
-        self.value = create_mlp([input_dims, *critic_hidden_dims, 1], final_activation='linear')
+
+        self.value = create_mlp(
+            [input_dims, *critic_hidden_dims, 1], final_activation='linear')
 
     def loss(self, log_probs, values, discounted_rewards):
         '''
