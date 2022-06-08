@@ -125,8 +125,8 @@ class RocketCircularization(object):
             if self.clip:
                 thrust_acc_magnitude = np.linalg.norm(thrust_acc)
                 if thrust_acc_magnitude > 1:
-                    thrust_acc = thrust_acc / thrust_acc_magnitude
-                thrust_acc = thrust_acc * self.max_thrust
+                    thrust_acc = thrust_acc / thrust_acc_magnitude     
+            thrust_acc = thrust_acc * self.max_thrust
             thrust_penalty = np.linalg.norm(thrust_acc)
         
         if self.thrust_direction == 'Polar':
