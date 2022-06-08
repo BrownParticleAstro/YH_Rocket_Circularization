@@ -1,3 +1,4 @@
+from turtle import pen
 import numpy as np
 from animation import RocketAnimation
 from bounds import Bounds, DEFAULT_BOUNDS
@@ -13,6 +14,7 @@ class RocketCircularization(object):
                  dt=0.01, M=1, m=0.01, G=1, bound_config=None, ignore_bounds=False,
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]], max_thrust=.1,
                  evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1, ang_momentum_penalty=0,
+                 penalty_mode='Absolute',
                  t_vec_len=1, state_output_mode='Cartesian', state_target_r=False, state_target_l=False,
                  thrust_mode='On-off', thrust_direction='Polar', clip=True):
         '''
@@ -64,6 +66,12 @@ class RocketCircularization(object):
         self.evaluation_penalty = evaluation_penalty
         self.inbounds_reward = inbounds_reward
         self.thrust_penalty = thrust_penalty
+        
+        penalty_functions = {
+            'Absolute': np.absolute, 
+            'Square': np.square
+        }
+        self.penalty_function = penalty_functions[penalty_mode]
 
         # Initialize thrusters
         self.thrust_vectors = thrust_vectors
@@ -243,8 +251,8 @@ class RocketCircularization(object):
         # thetahat = [-rhat[1], rhat[0]]
         # thetadot = vel @ thetahat / r
         l = pos[0] * vel[1] - pos[1] * vel[0]
-        circularization_penalty =  -np.absolute(np.linalg.norm(pos) - self.target_radius) * self.circularization_penalty 
-        ang_momentum_penalty = -np.absolute(l - l0) * self.ang_momentum_penalty
+        circularization_penalty =  -self.penalty_function(np.linalg.norm(pos) - self.target_radius) * self.circularization_penalty 
+        ang_momentum_penalty = -self.penalty_function(l - l0) * self.ang_momentum_penalty
         
         return circularization_penalty + ang_momentum_penalty
     
