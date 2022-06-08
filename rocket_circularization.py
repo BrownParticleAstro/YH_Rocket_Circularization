@@ -15,7 +15,7 @@ class RocketCircularization(object):
                  init_state=[1, 0, 0, 1], thrust_vectors=[[.1, 0], [0, .1], [-.1, 0], [0, -.1]], max_thrust=.1,
                  evaluation_penalty=1, inbounds_reward=1, thrust_penalty=.1, circularization_penalty=1, ang_momentum_penalty=0,
                  penalty_mode='Absolute',
-                 t_vec_len=1, state_output_mode='Cartesian', state_target_r=False, state_target_l=False,
+                 t_vec_len=1, circle_alpha=1, state_output_mode='Cartesian', state_target_r=False, state_target_l=False,
                  thrust_mode='On-off', thrust_direction='Polar', clip=True):
         '''
         Initialize the Rocket Circularization game environment
@@ -97,6 +97,7 @@ class RocketCircularization(object):
 
         self.animation = None
         self.t_vec_len = t_vec_len
+        self.circle_alpha = circle_alpha
         
         output_dims = {
             'Cartesian': self.state_space_dim,
@@ -214,7 +215,7 @@ class RocketCircularization(object):
         limits = (- self.max_radius - 0.2, self.max_radius + 0.2)
         self.animation = RocketAnimation(
             r_min=self.min_radius, r_target=self.target_radius, r_max=self.max_radius,
-            xlim=limits, ylim=limits, t_vec_len=self.t_vec_len)
+            xlim=limits, ylim=limits, t_vec_len=self.t_vec_len, circle_alpha=self.circle_alpha)
         self.animation.render(init_state, np.array([0, 0]), self.min_radius, self.target_radius, self.max_radius)
         
         return self._state_transform()
