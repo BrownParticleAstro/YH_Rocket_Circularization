@@ -88,7 +88,7 @@ class RocketAnimation(object):
             line to update
         '''
         st = self.states[i]
-        vec = -self.thrusts[i] * self.t_vec_len * (self.xlim[1] - self.xlim[0])
+        vec = self.thrusts[i] * self.t_vec_len * (self.xlim[1] - self.xlim[0])
 
         self.line.set_data([st[0]], [st[1]])
         self.min_circle.set_data(*self._circle(self.rmin[i]))
