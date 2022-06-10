@@ -132,6 +132,8 @@ class RocketCircularization(object):
             thrust_acc = action
             if self.clip:
                 thrust_acc_magnitude = np.linalg.norm(thrust_acc)
+                if np.isnan(thrust_acc_magnitude):
+                    print(f'thrust_acc_magnitude is nan with thrust_acc {thrust_acc}')
                 if thrust_acc_magnitude > 1:
                     thrust_acc = thrust_acc / thrust_acc_magnitude     
             thrust_acc = thrust_acc * self.max_thrust
@@ -254,9 +256,9 @@ class RocketCircularization(object):
         circularization_penalty =  -self.penalty_function(np.linalg.norm(pos) - self.target_radius) * self.circularization_penalty 
         ang_momentum_penalty = -self.penalty_function(l - l0) * self.ang_momentum_penalty
         if np.isnan(circularization_penalty):
-            print('Circularization penalty is nan')
+            print(f'Circularization penalty is nan, pos: {pos}')
         if np.isnan(ang_momentum_penalty):
-            print('Angular momentum penalty is nan')
+            print(f'Angular momentum penalty is nan, l: {l}, l0: {l0}')
         
         return circularization_penalty + ang_momentum_penalty
     
@@ -289,6 +291,10 @@ class RocketCircularization(object):
 
         r, v = self.state[:self.state_space_dim //
                           2], self.state[self.state_space_dim//2:]
+        if np.any(np.isnan(v)):
+            print(f'initial v is nan: {v}')
+        if np.any(np.isnan(r)):
+            print(f'initial r is nan: {r}')
         done = False
         reward = 0
         info = dict()
@@ -297,11 +303,15 @@ class RocketCircularization(object):
         self.min_radius, self.max_radius = self.bounds.get_bounds(self.iters)
 
         for _ in range(self.iter_steps):
+            if np.any(np.isnan(r)):
+                print(f'radius is nan: {r}')
             # Calculate total force
             gravitational_force = - (self.G * self.M * self.m) / \
-                np.power(np.linalg.norm(r), 3) * r  # F = - GMm/|r|^3 * r
+                (np.power(np.linalg.norm(r), 3) + 1e-6) * r  # F = - GMm/|r|^3 * r
             if np.any(np.isnan(gravitational_force)):
                 print(f'gravity is nan, with radius {r}')
+            if np.any(np.isinf(gravitational_force)):
+                print(f'gravity is inf, with radius {r}')
             # Point the thrust in the direction of travel
             thrust_force, thrust_penalty = self._get_thrust_and_penalty(action)
             if np.any(np.isnan(thrust_force)):
@@ -309,17 +319,21 @@ class RocketCircularization(object):
             if np.any(np.isnan(thrust_force)):
                 print(f'thrust penalty is nan, {thrust_penalty}')
             total_force = gravitational_force + thrust_force
+            if np.any(np.isnan(total_force)):
+                print(f'total force is nan: {total_force}')
+            if np.any(np.isinf(total_force)):
+                print(f'total force is inf: {total_force}')
             # Update position and location, this can somehow guarantee energy conservation
             v = v + total_force / self.m * self.dt
             r = r + v * self.dt
             if np.any(np.isnan(v)):
-                print('v is nan')
-            if np.any(np.isnan(v)):
-                print('r is nan')
+                print(f'v is nan: {v}')
+            if np.any(np.isnan(r)):
+                print(f'r is nan: {r}')
             # reward for staying inbounds 
             reward += (self._reward([*r, *v]) + self.inbounds_reward - thrust_penalty * self.thrust_penalty) * self.dt
             if np.isnan(reward):
-                print('Set reward is nan')
+                print(f'Set reward is nan, thrust_penalty: {thrust_penalty}')
             self.simulation_steps += 1
             # If out-of-bounds, end the game
             if not self.ignore_bounds:

@@ -65,12 +65,17 @@ class PolicyNetwork(tf.keras.Model):
         mus = tf.math.tanh(mus)
         sigmas = tf.exp(log_sigmas)
         action = tf.random.normal(mus.shape, mus, sigmas, dtype=tf.float32)
-        log_probs = -log_sigmas - tf.pow(((action - mus) / sigmas), 2) / 2
+        # print(action.numpy(), mus.numpy())
+        log_probs = -log_sigmas - tf.pow((action - mus) / sigmas, 2) / 2
         log_prob = tf.reduce_sum(log_probs)
         if tf.reduce_any(tf.math.is_nan(action)):
             print(f'nan action {action}')
+        if tf.reduce_any(tf.math.is_inf(action)):
+            print(f'inf action {action}')
         if tf.math.is_nan(log_prob):
-            print(f'nan log probability {action}')
+            print(f'nan log probability {log_prob}')
+        if tf.math.is_inf(log_prob):
+            print(f'inf log probability {log_prob}')
 
         return action.numpy(), log_prob
 
