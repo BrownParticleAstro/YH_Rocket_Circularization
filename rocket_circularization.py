@@ -395,7 +395,7 @@ class RocketCircularization(object):
             self.animation.save_animation(name)
         else:
             fig = self.summary()
-            fig.savefig(name)
+            fig.savefig(name, dpi=100)
         
     def summary(self, ):
         return self.animation.summary_plot()

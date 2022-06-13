@@ -236,7 +236,7 @@ class RocketAnimation(object):
     def summary_plot(self):
         self._transform_vectors()
         self.fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(
-            nrows=2, ncols=2, figsize=(12, 6), num=1, clear=True)
+            nrows=2, ncols=2, figsize=(10, 5), num=1, clear=True)
         self.fig.suptitle('Run Summary')
 
         self._plot_thrust_magnitude(ax1)
@@ -244,6 +244,8 @@ class RocketAnimation(object):
         self._plot_thrust_direction(ax2)
         self._plot_radius(ax3)
         self._plot_velocities(ax4)
+        
+        self.fig.tight_layout()
 
         return self.fig
 
