@@ -127,25 +127,28 @@ class RocketCircularization(object):
     def _get_thrust_and_penalty(self, action):
         if self.thrust_mode == 'On-off':
             thrust_acc = self.thrust_accelerations[action]
+            requested_thrust = thrust_acc * self.m
             thrust_penalty = self.thrust_penalties[action]
         elif self.thrust_mode == 'Continuous':
             thrust_acc = action
+            requested_thrust = self.m * self.max_thrust * thrust_acc
             if self.clip:
                 thrust_acc_magnitude = np.linalg.norm(thrust_acc)
                 if np.isnan(thrust_acc_magnitude):
                     print(f'thrust_acc_magnitude is nan with thrust_acc {thrust_acc}')
                 if thrust_acc_magnitude > 1:
-                    thrust_acc = thrust_acc / thrust_acc_magnitude     
+                    thrust_acc = thrust_acc / thrust_acc_magnitude
             thrust_acc = thrust_acc * self.max_thrust
             thrust_penalty = np.linalg.norm(thrust_acc)
         
         if self.thrust_direction == 'Polar':
             r = self.state[:self.state_space_dim // 2]
-            r_hat = r / (np.linalg.norm(r) + 1e-6)
+            r_hat = r / np.linalg.norm(r)
             rotation_matrix = np.array([[r_hat[0], -r_hat[1]], [r_hat[1], r_hat[0]]])
             thrust_acc = rotation_matrix @ thrust_acc
+            requested_thrust = rotation_matrix @ requested_thrust
             
-        return thrust_acc * self.m, thrust_penalty
+        return thrust_acc * self.m, thrust_penalty, requested_thrust
         
     def _thrust_acc_and_penalties(self):
         self.thrust_accelerations = []
@@ -217,7 +220,7 @@ class RocketCircularization(object):
         self.animation = RocketAnimation(
             r_min=self.min_radius, r_target=self.target_radius, r_max=self.max_radius,
             xlim=limits, ylim=limits, t_vec_len=self.t_vec_len, circle_alpha=self.circle_alpha)
-        self.animation.render(init_state, np.array([0, 0]), self.min_radius, self.target_radius, self.max_radius)
+        self.animation.render(init_state, np.array([0, 0]), np.array([0, 0]), self.min_radius, self.target_radius, self.max_radius)
         
         return self._state_transform()
     
@@ -313,7 +316,7 @@ class RocketCircularization(object):
             if np.any(np.isinf(gravitational_force)):
                 print(f'gravity is inf, with radius {r}')
             # Point the thrust in the direction of travel
-            thrust_force, thrust_penalty = self._get_thrust_and_penalty(action)
+            thrust_force, thrust_penalty, requested_thrust = self._get_thrust_and_penalty(action)
             if np.any(np.isnan(thrust_force)):
                 print(f'thrust force is nan, {thrust_force}')
             if np.any(np.isnan(thrust_force)):
@@ -369,7 +372,7 @@ class RocketCircularization(object):
                     # reward -= 1e6 / self.simulation_steps + 1e3
                     break
                 
-        self.animation.render(self.state, thrust_force, self.min_radius, self.target_radius, self.max_radius)
+        self.animation.render(self.state, thrust_force, requested_thrust, self.min_radius, self.target_radius, self.max_radius)
         
         state = self._state_transform()
 

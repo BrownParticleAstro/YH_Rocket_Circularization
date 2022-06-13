@@ -21,27 +21,17 @@ class RocketAnimation(object):
             markersize: int, the size of the marker indicating rocket
             t_vec_len: the scale of the thrust vector
         '''
+        self.r_min = r_min
+        self.r_target = r_target
+        self.r_max = r_max
 
-        self.fig = plt.figure(figsize=(4, 4), num=1, clear=True)
-        self.ax = plt.axes(xlim=xlim, ylim=ylim)
+        self.marker_size = markersize
+        self.circle_alpha = circle_alpha
         self.t_vec_len = t_vec_len
-        self.arrow = Arrow(posA=(0, 0), posB=(
-            0, 0), arrowstyle='simple', mutation_scale=10, color='r')
-        self.ax.add_patch(self.arrow)
-        self.line, = self.ax.plot([], [], marker='o', markersize=markersize, alpha=circle_alpha)
-
-        self.min_circle, = self.ax.plot(
-            *self._circle(r_min), '--', label='Minimum Radius')
-        self.target_circle, = self.ax.plot(
-            *self._circle(r_target), '--', label='Target Orbit')
-        self.max_circle, = self.ax.plot(
-            *self._circle(r_max), '--', label='Maximum Radius')
-
-        self.ax.grid(True)
-        self.ax.legend()
 
         self.states = list()
         self.thrusts = list()
+        self.requested_thrusts = list()
 
         self.rmin = list()
         self.rtarget = list()
@@ -73,8 +63,51 @@ class RocketAnimation(object):
         Returns:
             line to update
         '''
-        self.line.set_data([], [])
-        return self.line,
+        self.fig.set_size_inches(12, 6)
+        gs = self.axes[0, 0].get_gridspec()
+        for ax in self.axes[:, 0]:
+            ax.remove()
+        self.ax = self.fig.add_subplot(
+            gs[:, 0], xlim=self.xlim, ylim=self.ylim)
+        self.thrustax, self.stateax = self.axes[:, 1]
+
+        self.t_vec_len = self.t_vec_len
+        self.arrow = Arrow(posA=(0, 0), posB=(
+            0, 0), arrowstyle='simple', mutation_scale=10, color='r')
+        self.ax.add_patch(self.arrow)
+        self.line, = self.ax.plot(
+            [], [], marker='o', markersize=self.marker_size, alpha=self.circle_alpha)
+
+        self.min_circle, = self.ax.plot(
+            *self._circle(self.r_min), '--', label='Minimum Radius')
+        self.target_circle, = self.ax.plot(
+            *self._circle(self.r_target), '--', label='Target Orbit')
+        self.max_circle, = self.ax.plot(
+            *self._circle(self.r_max), '--', label='Maximum Radius')
+
+        self.ax.grid(True)
+        self.ax.legend()
+
+        self.thrustr, = self.thrustax.plot([], [], label='thrust r')
+        self.thrusttheta, = self.thrustax.plot(
+            [], [], label='thrust $\\theta$')
+        self.requested_thrustr, = self.thrustax.plot(
+            [], [], label='requested thrust r')
+        self.requested_thrusttheta, = self.thrustax.plot(
+            [], [], label='requested thrust $\\theta$')
+
+        self.thrustax.grid(True)
+        self.thrustax.legend()
+
+        self.stater, = self.stateax.plot([], [], label='state r')
+        self.statetheta, = self.stateax.plot([], [], label='state $\\theta$')
+
+        self.stateax.grid(True)
+        self.stateax.legend()
+
+        return self.line, self.min_circle, self.target_circle, self.max_circle, \
+            self.thrustr, self.thrusttheta, self.requested_thrustr,\
+            self.requested_thrusttheta, self.stater, self.statetheta
 
     def _animate(self, i):
         '''
@@ -96,14 +129,48 @@ class RocketAnimation(object):
         self.max_circle.set_data(*self._circle(self.rmax[i]))
 
         self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
-        self.ax.set_title(f'Iteration: {i}')
+        self.fig.suptitle(f'Iteration: {i}')
         # self.arrow = self.ax.arrow(st[0], st[1], vec[0], vec[1])
-        return self.line, self.min_circle, self.target_circle, self.max_circle
+
+        # self.thrustr.set_data([range(i)], [thrust[0]
+        #                       for thrust in self.thrusts_polar[:i]])
+        # self.thrusttheta.set_data([range(i)], [thrust[1]
+        #                                        for thrust in self.thrusts_polar[:i]])
+        # self.requested_thrustr.set_data(
+        #     [range(i)], [thrust[0] for thrust in self.requested_thrusts_polar[:i]])
+        # self.requested_thrusttheta.set_data(
+        #     [range(i)], [thrust[1] for thrust in self.requested_thrusts_polar[:i]])
+        
+        # max_value = np.max([np.abs(self.thrusts_polar), np.abs(self.requested_thrusts_polar)])
+        # self.thrustax.set_xlim(-0.5, i + 0.5)
+        # self.thrustax.set_ylim(-max_value*1.1, max_value*1.1)
+        
+        self.thrustr.set_data([range(i)], self.thrusts_norm[:i])
+        self.requested_thrustr.set_data([range(i)], self.requested_thrusts_norm[:i])
+        
+        max_value = np.max([self.thrusts_norm, self.requested_thrusts_norm])
+        self.thrustax.set_xlim(-0.5, i + 0.5)
+        self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
+
+        self.stater.set_data([range(i)], self.rs[:i])
+        # self.statetheta.set_data([range(i)], self.thetas[:i])
+        
+        # max_value = np.max([np.abs(self.rs), np.abs(self.thetas)])
+        max_value = np.max(np.abs(self.rs))
+        self.stateax.set_xlim(-0.5, i + 0.5)
+        self.stateax.set_ylim(-max_value*0.1, max_value*1.1)
+
+        return self.line, self.min_circle, self.target_circle, self.max_circle,\
+            self.thrustr, self.thrusttheta, self.requested_thrustr, \
+            self.requested_thrusttheta, self.stater, self.statetheta
 
     def show_animation(self,):
         '''
         Shows the animation in a pop-up window
         '''
+        self._transform_vectors()
+        self.fig, self.axes = plt.subplots(
+            nrows=2, ncols=2, figsize=(12, 6), num=1, clear=True)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
             self.states), blit=True, interval=100, repeat=False)
         plt.show()
@@ -115,11 +182,47 @@ class RocketAnimation(object):
         Parameter:
             name: str, the file name
         '''
+        self._transform_vectors()
+        self.fig, self.axes = plt.subplots(
+            nrows=2, ncols=2, figsize=(12, 6), num=1, clear=True)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
             self.states), blit=True, interval=100, repeat=False)
         anim.save(name)
 
-    def render(self, state, thrust, rmin, rtarget, rmax):
+    def _get_transforms(self, states):
+
+        transforms = list()
+        rs = list()
+        thetas = list()
+        for st in states:
+            pos, vel = st[:2], st[2:]
+            r = np.linalg.norm(pos)
+            theta = np.arctan2(pos[1], pos[0])
+            rhat = pos / r
+            rot_mat = np.array([[rhat[0], -rhat[1]], [rhat[1], rhat[0]]])
+            transforms.append(rot_mat)
+            rs.append(r)
+            thetas.append(theta)
+
+        return transforms, rs, thetas
+
+    def _forward_transform(self, transforms, vecs):
+        return [tr @ vec for tr, vec in zip(transforms, vecs)]
+
+    def _inverse_transform(self, transforms, vecs):
+        return [tr.T @ vec for tr, vec in zip(transforms, vecs)]
+
+    def _transform_vectors(self, ):
+        transforms, self.rs, self.thetas = self._get_transforms(self.states)
+        self.vel_polar = self._inverse_transform(
+            transforms, [st[2:] for st in self.states])
+        self.thrusts_polar = self._inverse_transform(transforms, self.thrusts)
+        self.requested_thrusts_polar = self._inverse_transform(
+            transforms, self.requested_thrusts)
+        self.thrusts_norm = [np.linalg.norm(thrust) for thrust in self.thrusts]
+        self.requested_thrusts_norm = [np.linalg.norm(thrust) for thrust in self.requested_thrusts]
+
+    def render(self, state, thrust, requested_thrust, rmin, rtarget, rmax):
         '''
         Records the current state in the animation for future rendering
 
@@ -128,6 +231,7 @@ class RocketAnimation(object):
         '''
         self.states.append(state)
         self.thrusts.append(thrust)
+        self.requested_thrusts.append(requested_thrust)
         self.rmin.append(rmin)
         self.rtarget.append(rtarget)
         self.rmax.append(rmax)
