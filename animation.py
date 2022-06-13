@@ -140,21 +140,22 @@ class RocketAnimation(object):
         #     [range(i)], [thrust[0] for thrust in self.requested_thrusts_polar[:i]])
         # self.requested_thrusttheta.set_data(
         #     [range(i)], [thrust[1] for thrust in self.requested_thrusts_polar[:i]])
-        
+
         # max_value = np.max([np.abs(self.thrusts_polar), np.abs(self.requested_thrusts_polar)])
         # self.thrustax.set_xlim(-0.5, i + 0.5)
         # self.thrustax.set_ylim(-max_value*1.1, max_value*1.1)
-        
+
         self.thrustr.set_data([range(i)], self.thrusts_norm[:i])
-        self.requested_thrustr.set_data([range(i)], self.requested_thrusts_norm[:i])
-        
+        self.requested_thrustr.set_data(
+            [range(i)], self.requested_thrusts_norm[:i])
+
         max_value = np.max([self.thrusts_norm, self.requested_thrusts_norm])
         self.thrustax.set_xlim(-0.5, i + 0.5)
         self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
 
         self.stater.set_data([range(i)], self.rs[:i])
         # self.statetheta.set_data([range(i)], self.thetas[:i])
-        
+
         # max_value = np.max([np.abs(self.rs), np.abs(self.thetas)])
         max_value = np.max(np.abs(self.rs))
         self.stateax.set_xlim(-0.5, i + 0.5)
@@ -189,6 +190,63 @@ class RocketAnimation(object):
             self.states), blit=True, interval=100, repeat=False)
         anim.save(name)
 
+    def _plot_thrust_magnitude(self, ax):
+        ax.set_title('Thrust Magnitude')
+        ax.plot(self.thrusts_norm, label='thrust magnitude')
+        ax.plot(self.requested_thrusts_norm,
+                label='requested thrust magnitude')
+        ax.grid(True)
+        ax.legend()
+
+    def _plot_thrust_value(self, ax):
+        ax.set_title('Thrust Values')
+        ax.plot([thrust[0]
+                 for thrust in self.thrusts_polar], label='thrust radial')
+        ax.plot([thrust[1]
+                 for thrust in self.thrusts_polar], label='thrust tangent')
+        ax.plot([thrust[0] for thrust in self.requested_thrusts_polar],
+                label='requested thrust radial')
+        ax.plot([thrust[1] for thrust in self.requested_thrusts_polar],
+                label='requested thrust tangent')
+        ax.grid(True)
+        ax.legend()
+
+    def _plot_thrust_direction(self, ax):
+        ax.set_title('Thrust Direction (Angle from $\hat{r}$)')
+        ax.plot(self.thrust_direction, label='Thrust Direction')
+        ax.plot(self.requested_thrust_direction,
+                label='Requested Thrust Direction')
+        ax.grid(True)
+        ax.legend()
+
+    def _plot_radius(self, ax):
+        ax.set_title('Radius')
+        ax.plot(self.rs, label='radius')
+        ax.grid(True)
+        ax.legend()
+
+    def _plot_velocities(self, ax):
+        ax.set_title('Velocities')
+        ax.plot([vel[0] for vel in self.vel_polar], label='radial velocity')
+        ax.plot([vel[1] for vel in self.vel_polar],
+                label='tangential velocity')
+        ax.grid(True)
+        ax.legend()
+
+    def summary_plot(self):
+        self._transform_vectors()
+        self.fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(
+            nrows=2, ncols=2, figsize=(12, 6), num=1, clear=True)
+        self.fig.suptitle('Run Summary')
+
+        self._plot_thrust_magnitude(ax1)
+        #self._plot_thrust_value(ax2)
+        self._plot_thrust_direction(ax2)
+        self._plot_radius(ax3)
+        self._plot_velocities(ax4)
+
+        return self.fig
+
     def _get_transforms(self, states):
 
         transforms = list()
@@ -220,7 +278,12 @@ class RocketAnimation(object):
         self.requested_thrusts_polar = self._inverse_transform(
             transforms, self.requested_thrusts)
         self.thrusts_norm = [np.linalg.norm(thrust) for thrust in self.thrusts]
-        self.requested_thrusts_norm = [np.linalg.norm(thrust) for thrust in self.requested_thrusts]
+        self.requested_thrusts_norm = [np.linalg.norm(
+            thrust) for thrust in self.requested_thrusts]
+        self.thrust_direction = [np.arctan2(
+            thrust[1], thrust[0]) for thrust in self.thrusts]
+        self.requested_thrust_direction = [np.arctan2(
+            thrust[1], thrust[0]) for thrust in self.requested_thrusts]
 
     def render(self, state, thrust, requested_thrust, rmin, rtarget, rmax):
         '''

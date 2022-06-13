@@ -384,14 +384,21 @@ class RocketCircularization(object):
         '''
         self.animation.show_animation()
     
-    def save(self, name):
+    def save(self, name, video=True):
         '''
         Save animation
         
         Parameter:
             name: str, the file path
         '''
-        self.animation.save_animation(name)
+        if video:
+            self.animation.save_animation(name)
+        else:
+            fig = self.summary()
+            fig.savefig(name)
+        
+    def summary(self, ):
+        return self.animation.summary_plot()
 
 if __name__ == '__main__':
     env = RocketCircularization()
