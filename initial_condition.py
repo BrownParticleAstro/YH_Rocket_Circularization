@@ -10,7 +10,7 @@ def constant(value):
 def rotated_state(st, random, theta=0):
     def func(_):
         nonlocal st, theta
-        
+
         if random:
             theta = np.random.uniform(0, 2 * np.pi)
         rot_mat = np.array([[np.cos(theta), -np.sin(theta)],
@@ -22,7 +22,26 @@ def rotated_state(st, random, theta=0):
     return func
 
 
-funcs = {constant, rotated_state}
+def uniform(r_min=0.9, r_max=1.1, rdot_min=-1.5, rdot_max=1.5, thetadot_min=-1.5, thetadot_max=1.5):
+    def func(_):
+        nonlocal r_min, r_max, rdot_min, rdot_max, thetadot_min, thetadot_max
+
+        r = np.random.uniform(r_min, r_max)
+        theta = np.random.uniform(0, 2 * np.pi)
+        rdot = np.random.uniform(rdot_min, rdot_max)
+        thetadot = np.random.uniform(thetadot_min, thetadot_max)
+        
+        pos = [r, 0]
+        vel = [rdot, r * thetadot]
+
+        rot_mat = np.array([[np.cos(theta), -np.sin(theta)],
+                            [np.sin(theta), np.cos(theta)]])
+
+        return [*(rot_mat @ pos), *(rot_mat @ vel)]
+    return func
+
+
+funcs = {constant, rotated_state, uniform}
 func_name = {func.__name__: func for func in funcs}
 
 DEFAULT_INITIAL_CONDITION = {

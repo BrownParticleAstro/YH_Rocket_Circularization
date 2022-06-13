@@ -171,7 +171,7 @@ class PolicyNetwork(tf.keras.Model):
 
         return log_probs, rewards
 
-    def train(self, env, episodes=2000, gamma=0.9, vdo_rate=100, save_rate=100):
+    def train(self, env, episodes=2000, gamma=0.9, vdo_rate=100, save_rate=100, summary_rate=10):
         '''
         Train the policy network with policy gradients
 
@@ -240,6 +240,16 @@ class PolicyNetwork(tf.keras.Model):
                         wandb.log(
                             {'play_test': wandb.Video(vdo_path, format='mp4')})
 
+                if episode % summary_rate == 0:
+                    media_path = os.path.join(wandb.run.dir, 'media')
+                    if not os.path.exists(os.path.join(wandb.run.dir, 'media')):
+                        os.makedirs(media_path)
+
+                    img_path = os.path.join(media_path, f'{episode}.jpg')
+                    self.play(env, img_path, video=False)
+                    wandb.log(
+                        {'play_test': wandb.Image(img_path)})
+
                 if episode % vdo_rate == 0:
                     media_path = os.path.join(wandb.run.dir, 'media')
                     if not os.path.exists(os.path.join(wandb.run.dir, 'media')):
@@ -259,7 +269,7 @@ class PolicyNetwork(tf.keras.Model):
                     self.save_weights(save_path)
                     wandb.save(save_path + '*', base_path=wandb.run.dir)
 
-    def play(self, env, vdo_path='play.mp4'):
+    def play(self, env, vdo_path='play.mp4', video=True):
         '''
         Runs the game from start to finish
 
@@ -279,7 +289,7 @@ class PolicyNetwork(tf.keras.Model):
             if done:
                 break
 
-        env.save(vdo_path)
+        env.save(vdo_path, video=video)
         print(f"Total Reward: {total_reward}")
 
 
