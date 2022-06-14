@@ -18,11 +18,13 @@ def create_mlp(dims, activation='relu', final_activation='log_softmax'):
         model.add(tf.keras.layers.Dense(dim, activation=active))
     model.add(tf.keras.layers.Dense(dims[-1], activation=final_activation))
 
+    model.summary()
+
     return model
 
 
 class PolicyNetwork(tf.keras.Model):
-    def __init__(self, input_dims, hidden_dims, output_dims, output_mode='Discrete', lr=0.001) -> None:
+    def __init__(self, input_dims, hidden_dims, output_dims, activation='relu', output_mode='Discrete', lr=0.001) -> None:
         '''
         Initiate a policy network with the indicated dimensions
         '''
@@ -42,7 +44,7 @@ class PolicyNetwork(tf.keras.Model):
             final_activation = 'log_softmax'
 
         self.net = create_mlp(
-            [input_dims, *hidden_dims, output_dims], final_activation=final_activation)
+            [input_dims, *hidden_dims, output_dims], activation=activation, final_activation=final_activation)
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         self.iters = 0
@@ -63,7 +65,8 @@ class PolicyNetwork(tf.keras.Model):
         output = self.net(state)[0]
         mus, log_sigmas = output[:len(output) // 2], output[len(output) // 2:]
         mus = tf.math.tanh(mus)
-        sigmas = tf.exp(log_sigmas)
+        log_sigmas = tf.math.log_sigmoid(log_sigmas)
+        sigmas = np.exp(log_sigmas)
         action = tf.random.normal(mus.shape, mus, sigmas, dtype=tf.float32)
         # print(action.numpy(), mus.numpy())
         log_probs = -log_sigmas - tf.pow((action - mus) / sigmas, 2) / 2
@@ -248,7 +251,7 @@ class PolicyNetwork(tf.keras.Model):
                     img_path = os.path.join(media_path, f'{episode}.jpg')
                     self.play(env, img_path, video=False)
                     wandb.log(
-                        {'play_test': wandb.Image(img_path)})
+                        {'summary': wandb.Image(img_path)})
 
                 if episode % vdo_rate == 0:
                     media_path = os.path.join(wandb.run.dir, 'media')
@@ -294,16 +297,17 @@ class PolicyNetwork(tf.keras.Model):
 
 
 class PolicyNetworkBaseline(PolicyNetwork):
-    def __init__(self, input_dims, actor_hidden_dims, output_dims, critic_hidden_dims, output_mode='Discrete', lr=0.001):
+    def __init__(self, input_dims, actor_hidden_dims, output_dims, critic_hidden_dims, actor_activation='relu', critic_activation='relu', \
+                 output_mode='Discrete', lr=0.001):
 
         super(PolicyNetworkBaseline, self).__init__(
-            input_dims, actor_hidden_dims, output_dims, output_mode, lr)
+            input_dims, actor_hidden_dims, output_dims, actor_activation, output_mode, lr)
 
         if isinstance(critic_hidden_dims, int):
             critic_hidden_dims = [critic_hidden_dims]
 
         self.value = create_mlp(
-            [input_dims, *critic_hidden_dims, 1], final_activation='linear')
+            [input_dims, *critic_hidden_dims, 1], activation=critic_activation, final_activation='linear')
 
     def loss(self, log_probs, values, discounted_rewards):
         '''
