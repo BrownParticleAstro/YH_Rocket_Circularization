@@ -3,12 +3,13 @@ from scipy.linalg import solve_discrete_are as solve_dare
 import numpy as np
 
 class LQR:
-  def __init__(self, mu, l_penalty=True):
+  def __init__(self, mu, l_penalty=True, thrust_penalty=1):
     self.mu = mu
     self.r0 = None
     self.S = None
     self.K = None
     self.l_penalty = l_penalty
+    self.u_penalty = thrust_penalty
 
   def insert_target(self, r0, l0=None, mu=1):
     l0 = np.sqrt(r0 * self.mu)
@@ -24,7 +25,7 @@ class LQR:
         Q = np.diag([1/r0**2, 1/l0**2, 0]).reshape(3, 3)
     else:
         Q = np.diag([1/r0**2, 0, 0]).reshape(3, 3)
-    R = 0.1 * np.eye(2)
+    R = self.u_penalty * np.eye(2)
 
     self.S = solve_care(A, B, Q, R)
     self.K = np.linalg.inv(R) @ B.T @ self.S
