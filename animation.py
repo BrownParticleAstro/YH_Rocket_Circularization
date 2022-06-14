@@ -63,14 +63,6 @@ class RocketAnimation(object):
         Returns:
             line to update
         '''
-        self.fig.set_size_inches(12, 6)
-        gs = self.axes[0, 0].get_gridspec()
-        self.axes[0, 0].remove()
-        self.axes[1, 0].remove()
-        self.ax = self.fig.add_subplot(
-            gs[:, 0], xlim=self.xlim, ylim=self.ylim)
-        self.thrustax, self.stateax = self.axes[:, 1]
-
         self.t_vec_len = self.t_vec_len
         self.arrow = Arrow(posA=(0, 0), posB=(
             0, 0), arrowstyle='simple', mutation_scale=10, color='r')
@@ -88,13 +80,16 @@ class RocketAnimation(object):
         self.ax.grid(True)
         self.ax.legend()
 
-        self.thrustr, = self.thrustax.plot([], [], label='thrust r')
-        self.thrusttheta, = self.thrustax.plot(
-            [], [], label='thrust $\\theta$')
+        # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
+        # self.thrusttheta, = self.thrustax.plot(
+        #     [], [], label='thrust $\\theta$')
+        # self.requested_thrustr, = self.thrustax.plot(
+        #     [], [], label='requested thrust r')
+        # self.requested_thrusttheta, = self.thrustax.plot(
+        #     [], [], label='requested thrust $\\theta$')
+        self.thrustr, = self.thrustax.plot([], [], label='thrust magnitude')
         self.requested_thrustr, = self.thrustax.plot(
-            [], [], label='requested thrust r')
-        self.requested_thrusttheta, = self.thrustax.plot(
-            [], [], label='requested thrust $\\theta$')
+            [], [], label='requested thrust magnitude')
 
         self.thrustax.grid(True)
         self.thrustax.legend()
@@ -106,8 +101,8 @@ class RocketAnimation(object):
         self.stateax.legend()
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
-            self.thrustr, self.thrusttheta, self.requested_thrustr,\
-            self.requested_thrusttheta, self.stater, self.statetheta
+            self.thrustr, self.requested_thrustr,\
+            self.stater, self.statetheta
 
     def _animate(self, i):
         '''
@@ -162,16 +157,19 @@ class RocketAnimation(object):
         self.stateax.set_ylim(-max_value*0.1, max_value*1.1)
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
-            self.thrustr, self.thrusttheta, self.requested_thrustr, \
-            self.requested_thrusttheta, self.stater, self.statetheta
+            self.thrustr, self.requested_thrustr, \
+            self.stater, self.statetheta
 
     def show_animation(self,):
         '''
         Shows the animation in a pop-up window
         '''
         self._transform_vectors()
-        self.fig, self.axes = plt.subplots(
-            nrows=2, ncols=2, figsize=(12, 6), num=1, clear=True)
+        self.fig = plt.figure(figsize=(10, 5), num=1,
+                              clear=True, tight_layout=True)
+        self.ax = self.fig.add_subplot(121)
+        self.thrustax = self.fig.add_subplot(222)
+        self.stateax = self.fig.add_subplot(224)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
             self.states), blit=True, interval=100, repeat=False)
         plt.show()
@@ -184,8 +182,11 @@ class RocketAnimation(object):
             name: str, the file name
         '''
         self._transform_vectors()
-        self.fig, self.axes = plt.subplots(
-            nrows=2, ncols=2, figsize=(10, 5), num=1, clear=True)
+        self.fig = plt.figure(figsize=(10, 5), num=1,
+                              clear=True, tight_layout=True)
+        self.ax = self.fig.add_subplot(121)
+        self.thrustax = self.fig.add_subplot(222)
+        self.stateax = self.fig.add_subplot(224)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
             self.states), blit=True, interval=100, repeat=False)
         anim.save(name, dpi=80)
@@ -194,20 +195,20 @@ class RocketAnimation(object):
         ax.set_title('Thrust Magnitude')
         ax.semilogy(self.thrusts_norm, label='thrust magnitude')
         ax.semilogy(self.requested_thrusts_norm,
-                label='requested thrust magnitude')
+                    label='requested thrust magnitude')
         ax.grid(True)
         ax.legend()
 
     def _plot_thrust_value(self, ax):
         ax.set_title('Thrust Values')
         ax.semilogy([thrust[0]
-                 for thrust in self.thrusts_polar], label='thrust radial')
+                     for thrust in self.thrusts_polar], label='thrust radial')
         ax.semilogy([thrust[1]
-                 for thrust in self.thrusts_polar], label='thrust tangent')
+                     for thrust in self.thrusts_polar], label='thrust tangent')
         ax.semilogy([thrust[0] for thrust in self.requested_thrusts_polar],
-                label='requested thrust radial')
+                    label='requested thrust radial')
         ax.semilogy([thrust[1] for thrust in self.requested_thrusts_polar],
-                label='requested thrust tangent')
+                    label='requested thrust tangent')
         ax.grid(True)
         ax.legend()
 
