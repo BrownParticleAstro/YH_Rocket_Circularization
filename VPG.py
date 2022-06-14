@@ -64,7 +64,7 @@ class PolicyNetwork(tf.keras.Model):
         state = state.reshape((1, -1))
         output = self.net(state)[0]
         mus, log_sigmas = output[:len(output) // 2], output[len(output) // 2:]
-        mus = tf.math.tanh(mus)
+        #mus = tf.math.tanh(mus)
         log_sigmas = tf.math.log_sigmoid(log_sigmas)
         sigmas = np.exp(log_sigmas)
         action = tf.random.normal(mus.shape, mus, sigmas, dtype=tf.float32)
