@@ -65,8 +65,8 @@ class RocketAnimation(object):
         '''
         self.fig.set_size_inches(12, 6)
         gs = self.axes[0, 0].get_gridspec()
-        for ax in self.axes[:, 0]:
-            ax.remove()
+        self.axes[0, 0].remove()
+        self.axes[1, 0].remove()
         self.ax = self.fig.add_subplot(
             gs[:, 0], xlim=self.xlim, ylim=self.ylim)
         self.thrustax, self.stateax = self.axes[:, 1]
@@ -185,28 +185,28 @@ class RocketAnimation(object):
         '''
         self._transform_vectors()
         self.fig, self.axes = plt.subplots(
-            nrows=2, ncols=2, figsize=(12, 6), num=1, clear=True)
+            nrows=2, ncols=2, figsize=(10, 5), num=1, clear=True)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
             self.states), blit=True, interval=100, repeat=False)
-        anim.save(name)
+        anim.save(name, dpi=80)
 
     def _plot_thrust_magnitude(self, ax):
         ax.set_title('Thrust Magnitude')
-        ax.plot(self.thrusts_norm, label='thrust magnitude')
-        ax.plot(self.requested_thrusts_norm,
+        ax.semilogy(self.thrusts_norm, label='thrust magnitude')
+        ax.semilogy(self.requested_thrusts_norm,
                 label='requested thrust magnitude')
         ax.grid(True)
         ax.legend()
 
     def _plot_thrust_value(self, ax):
         ax.set_title('Thrust Values')
-        ax.plot([thrust[0]
+        ax.semilogy([thrust[0]
                  for thrust in self.thrusts_polar], label='thrust radial')
-        ax.plot([thrust[1]
+        ax.semilogy([thrust[1]
                  for thrust in self.thrusts_polar], label='thrust tangent')
-        ax.plot([thrust[0] for thrust in self.requested_thrusts_polar],
+        ax.semilogy([thrust[0] for thrust in self.requested_thrusts_polar],
                 label='requested thrust radial')
-        ax.plot([thrust[1] for thrust in self.requested_thrusts_polar],
+        ax.semilogy([thrust[1] for thrust in self.requested_thrusts_polar],
                 label='requested thrust tangent')
         ax.grid(True)
         ax.legend()
@@ -240,11 +240,11 @@ class RocketAnimation(object):
         self.fig.suptitle('Run Summary')
 
         self._plot_thrust_magnitude(ax1)
-        #self._plot_thrust_value(ax2)
+        # self._plot_thrust_value(ax2)
         self._plot_thrust_direction(ax2)
         self._plot_radius(ax3)
         self._plot_velocities(ax4)
-        
+
         self.fig.tight_layout()
 
         return self.fig
