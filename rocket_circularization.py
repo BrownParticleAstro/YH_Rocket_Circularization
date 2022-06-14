@@ -101,13 +101,14 @@ class RocketCircularization(object):
         output_dims = {
             'Cartesian': self.state_space_dim,
             'Polar': self.state_space_dim,
-            'No Theta': self.state_space_dim - 1
+            'No Theta': self.state_space_dim - 1,
+            'Offset LR': self.state_space_dim - 1
         }
         
         self.state_output_dims = output_dims[state_output_mode] + sum([state_target_r, state_target_l])
         self.state_target_r = state_target_r
         self.state_target_l = state_target_l
-        self.polar = state_output_mode in {'Polar', 'No Theta'}
+        self.polar = state_output_mode in {'Polar', 'No Theta', 'Offset LR'}
         self.state_output_mode = state_output_mode
         
         
@@ -232,6 +233,11 @@ class RocketCircularization(object):
             
         if self.state_output_mode == 'No Theta':
             state = state[[0, 2, 3]]
+            
+        if self.state_output_mode == 'Offset LR':
+            l = (state[0] ** 2) * state[3]
+            l0 = np.sqrt(self.target_radius * self.G * self.M)
+            state = np.array([l - l0, state[0] - self.target_radius, state[2]])
             
         if self.state_target_r:
             state = np.array([*state, self.target_radius])
