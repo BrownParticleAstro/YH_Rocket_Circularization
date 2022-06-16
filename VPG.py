@@ -63,13 +63,29 @@ class PolicyNetwork(tf.keras.Model):
             print(f'nan input state {state}')
         state = state.reshape((1, -1))
         output = self.net(state)[0]
-        mus, log_sigmas = output[:len(output) // 2], output[len(output) // 2:]
-        #mus = tf.math.tanh(mus)
-        log_sigmas = tf.math.log_sigmoid(log_sigmas)
-        sigmas = np.exp(log_sigmas)
-        action = tf.random.normal(mus.shape, mus, sigmas, dtype=tf.float32)
+        # mus, log_sigmas = output[:len(output) // 2], output[len(output) // 2:]
+        # # mus = tf.math.tanh(mus)
+        # log_sigmas = tf.math.log_sigmoid(log_sigmas)
+        # sigmas = np.exp(log_sigmas)
+        # action = tf.random.normal(mus.shape, mus, sigmas, dtype=tf.float32)
         # print(action.numpy(), mus.numpy())
-        log_probs = -log_sigmas - tf.pow((action - mus) / sigmas, 2) / 2
+        # log_probs = -log_sigmas - tf.pow((action - mus) / sigmas, 2) / 2
+
+        # Use beta distribution for bounded domains
+        thrusts, kappas = output[:len(output) // 2], output[len(output) // 2:]
+        thrusts, kappas = tf.math.tanh(thrusts), tf.math.exp(kappas)
+        omegas = (thrusts + 1) / 2
+        alphas, betas = omegas * kappas + 1, (1 - omegas) * kappas + 1
+
+        choice = np.random.beta(
+            alphas.numpy(), betas.numpy(), omegas.numpy().shape)
+        log_probs = -tf.math.lbeta(tf.stack((alphas, betas), axis=-1)) + \
+            (alphas - 1) * tf.math.log(tf.convert_to_tensor(choice, dtype=tf.float32)) + \
+            (betas - 1) * tf.math.log(1 -
+                                      tf.convert_to_tensor(choice, dtype=tf.float32))
+
+        action = choice * 2 - 1
+
         log_prob = tf.reduce_sum(log_probs)
         if tf.reduce_any(tf.math.is_nan(action)):
             print(f'nan action {action}')
@@ -80,7 +96,7 @@ class PolicyNetwork(tf.keras.Model):
         if tf.math.is_inf(log_prob):
             print(f'inf log probability {log_prob}')
 
-        return action.numpy(), log_prob
+        return action, log_prob
 
     def act(self, state):
         '''
@@ -211,11 +227,11 @@ class PolicyNetwork(tf.keras.Model):
                 print(
                     f'Iterations: {self.iters}, Rewards: {total_rewards:.3f}, Loss: {policy_loss.numpy():.3f}, SimuTime: {simulation_time:.2f}, TrainTime: {train_time:.2f}')
 
-                wandb.log({
+                log = {
                     'iterations': self.iters,
                     'rewards': total_rewards,
                     'loss': policy_loss.numpy()
-                })
+                }
 
                 if total_rewards > max_rwd:
                     max_rwd = total_rewards
@@ -239,9 +255,8 @@ class PolicyNetwork(tf.keras.Model):
                             os.makedirs(media_path)
 
                         vdo_path = os.path.join(media_path, f'{episode}.mp4')
-                        self.play(env, vdo_path)
-                        wandb.log(
-                            {'play_test': wandb.Video(vdo_path, format='mp4')})
+                        env.save(vdo_path)
+                        log['best_plays'] = wandb.Video(vdo_path, format='mp4')
 
                 if episode % summary_rate == 0:
                     media_path = os.path.join(wandb.run.dir, 'media')
@@ -249,9 +264,8 @@ class PolicyNetwork(tf.keras.Model):
                         os.makedirs(media_path)
 
                     img_path = os.path.join(media_path, f'{episode}.jpg')
-                    self.play(env, img_path, video=False)
-                    wandb.log(
-                        {'summary': wandb.Image(img_path)})
+                    env.save(img_path, video=False)
+                    log['summary'] = wandb.Image(img_path)
 
                 if episode % vdo_rate == 0:
                     media_path = os.path.join(wandb.run.dir, 'media')
@@ -259,9 +273,9 @@ class PolicyNetwork(tf.keras.Model):
                         os.makedirs(media_path)
 
                     vdo_path = os.path.join(media_path, f'{episode}.mp4')
-                    self.play(env, vdo_path)
-                    wandb.log(
-                        {'play_test': wandb.Video(vdo_path, format='mp4')})
+                    env.save(vdo_path)
+                    log['current_performance'] = wandb.Video(
+                        vdo_path, format='mp4')
 
                 if episode % save_rate == 0:
                     model_path = os.path.join(wandb.run.dir, 'model')
@@ -271,6 +285,8 @@ class PolicyNetwork(tf.keras.Model):
                     save_path = os.path.join(model_path, 'model.ckpt')
                     self.save_weights(save_path)
                     wandb.save(save_path + '*', base_path=wandb.run.dir)
+
+                wandb.log(log)
 
     def play(self, env, vdo_path='play.mp4', video=True):
         '''
@@ -297,7 +313,7 @@ class PolicyNetwork(tf.keras.Model):
 
 
 class PolicyNetworkBaseline(PolicyNetwork):
-    def __init__(self, input_dims, actor_hidden_dims, output_dims, critic_hidden_dims, actor_activation='relu', critic_activation='relu', \
+    def __init__(self, input_dims, actor_hidden_dims, output_dims, critic_hidden_dims, actor_activation='relu', critic_activation='relu',
                  output_mode='Discrete', lr=0.001):
 
         super(PolicyNetworkBaseline, self).__init__(
