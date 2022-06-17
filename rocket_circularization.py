@@ -2,6 +2,7 @@ import numpy as np
 from animation import RocketAnimation
 from bounds import Bounds, DEFAULT_BOUNDS
 from initial_condition import InitialCondition, DEFAULT_INITIAL_CONDITION
+from summary import Summary
 
 
 class RocketCircularization(object):
@@ -111,7 +112,6 @@ class RocketCircularization(object):
         self.polar = state_output_mode in {'Polar', 'No Theta', 'Offset LR'}
         self.state_output_mode = state_output_mode
         
-        
     def get_state_dims(self):
         return self.state_output_dims
     
@@ -215,6 +215,8 @@ class RocketCircularization(object):
         self.bounds.reset()
         self.min_radius, self.max_radius = self.bounds.get_bounds(self.iters)
         
+        # New summary
+        self.summary = Summary()
         
         # Initialize animation
         limits = (- self.max_radius - 0.2, self.max_radius + 0.2)
@@ -222,6 +224,14 @@ class RocketCircularization(object):
             r_min=self.min_radius, r_target=self.target_radius, r_max=self.max_radius,
             xlim=limits, ylim=limits, t_vec_len=self.t_vec_len, circle_alpha=self.circle_alpha)
         self.animation.render(init_state, np.array([0, 0]), np.array([0, 0]), self.min_radius, self.target_radius, self.max_radius)
+        self.summary.log(
+            states=init_state,
+            thrusts=np.array([0, 0]),
+            requested_thrusts=np.array([0, 0]),
+            rewards=0,
+            rmin=self.min_radius,
+            rtarget=self.target_radius,
+            rmax=self.max_radius)
         
         return self._state_transform()
     
@@ -317,28 +327,12 @@ class RocketCircularization(object):
             # Calculate total force
             gravitational_force = - (self.G * self.M * self.m) / \
                 (np.power(np.linalg.norm(r), 3) + 1e-6) * r  # F = - GMm/|r|^3 * r
-            if np.any(np.isnan(gravitational_force)):
-                print(f'gravity is nan, with radius {r}')
-            if np.any(np.isinf(gravitational_force)):
-                print(f'gravity is inf, with radius {r}')
             # Point the thrust in the direction of travel
             thrust_force, thrust_penalty, requested_thrust = self._get_thrust_and_penalty(action)
-            if np.any(np.isnan(thrust_force)):
-                print(f'thrust force is nan, {thrust_force}')
-            if np.any(np.isnan(thrust_force)):
-                print(f'thrust penalty is nan, {thrust_penalty}')
             total_force = gravitational_force + thrust_force
-            if np.any(np.isnan(total_force)):
-                print(f'total force is nan: {total_force}')
-            if np.any(np.isinf(total_force)):
-                print(f'total force is inf: {total_force}')
             # Update position and location, this can somehow guarantee energy conservation
             v = v + total_force / self.m * self.dt
             r = r + v * self.dt
-            if np.any(np.isnan(v)):
-                print(f'v is nan: {v}')
-            if np.any(np.isnan(r)):
-                print(f'r is nan: {r}')
             # reward for staying inbounds 
             reward += (self._reward([*r, *v]) + self.inbounds_reward - thrust_penalty * self.thrust_penalty) * self.dt
             if np.isnan(reward):
@@ -379,6 +373,14 @@ class RocketCircularization(object):
                     break
                 
         self.animation.render(self.state, thrust_force, requested_thrust, self.min_radius, self.target_radius, self.max_radius)
+        self.summary.log(
+            states=self.state,
+            thrusts=thrust_force,
+            requested_thrusts=requested_thrust,
+            rewards=reward,
+            rmin=self.min_radius,
+            rtarget=self.target_radius,
+            rmax=self.max_radius)
         
         state = self._state_transform()
 
@@ -400,11 +402,14 @@ class RocketCircularization(object):
         if video:
             self.animation.save_animation(name)
         else:
-            fig = self.summary()
+            fig = self.get_summary()
             fig.savefig(name, dpi=100)
         
-    def summary(self, ):
+    def get_summary(self, ):
         return self.animation.summary_plot()
+    
+    def log(self, data):
+        return self.summary.log(data)
 
 if __name__ == '__main__':
     env = RocketCircularization()
