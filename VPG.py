@@ -1,8 +1,10 @@
-import tensorflow as tf
-import wandb
-import numpy as np
-import time
 import os
+import time
+import numpy as np
+import wandb
+import tensorflow as tf
+import tensorflow_probability as tfp
+tfd = tfp.distributions
 
 
 def create_mlp(dims, activation='relu', final_activation='log_softmax'):
@@ -72,29 +74,42 @@ class PolicyNetwork(tf.keras.Model):
         # log_probs = -log_sigmas - tf.pow((action - mus) / sigmas, 2) / 2
 
         # Use beta distribution for bounded domains
-        thrusts, kappas = output[:len(output) // 2], output[len(output) // 2:]
-        thrusts, kappas = tf.math.tanh(thrusts), tf.math.exp(kappas)
-        omegas = (thrusts + 1) / 2
-        alphas, betas = omegas * kappas + 1, (1 - omegas) * kappas + 1
+        # thrusts, kappas = output[:len(output) // 2], output[len(output) // 2:]
+        # thrusts, kappas = tf.math.tanh(thrusts), tf.math.exp(kappas)
+        # omegas = (thrusts + 1) / 2
+        # alphas, betas = omegas * kappas + 1, (1 - omegas) * kappas + 1
 
-        choice = np.random.beta(
-            alphas.numpy(), betas.numpy(), omegas.numpy().shape)
-        log_probs = -tf.math.lbeta(tf.stack((alphas, betas), axis=-1)) + \
-            (alphas - 1) * tf.math.log(tf.convert_to_tensor(choice, dtype=tf.float32)) + \
-            (betas - 1) * tf.math.log(1 -
-                                      tf.convert_to_tensor(choice, dtype=tf.float32))
+        # choice = np.random.beta(
+        #     alphas.numpy(), betas.numpy(), omegas.numpy().shape)
+        # log_probs = -tf.math.lbeta(tf.stack((alphas, betas), axis=-1)) + \
+        #     (alphas - 1) * tf.math.log(tf.convert_to_tensor(choice, dtype=tf.float32)) + \
+        #     (betas - 1) * tf.math.log(1 -
+        #                               tf.convert_to_tensor(choice, dtype=tf.float32))
 
-        action = choice * 2 - 1
+        # action = choice * 2 - 1
+
+        # Beta for magnitude (mode omega, concentration kappa1 + 2), denoted u
+        # VonMises for angle (mean mu, concentrations kappa2), denoted theta
+        omega, mu, log_kappa1, log_kappa2 = output
+        # make it such that -pi <= mu < pi.
+        n = (tf.math.floor(mu / (2 * np.pi)) - np.pi).numpy()
+        omega, mu, kappa1, kappa2 = tf.math.sigmoid(
+            omega), mu - 2 * np.pi * n, tf.math.exp(log_kappa1), tf.math.exp(log_kappa2)
+        alpha, beta = omega * kappa1 + 1, (1 - omega) * kappa1 + 1
+
+        beta_dist = tfd.Beta(alpha, beta)
+        vonmises_dist = tfd.VonMises(mu, kappa2)
+        # Sampling creates a gradient to parameters. We stop it here
+        u = beta_dist.sample().numpy()
+        theta = vonmises_dist.sample().numpy()
+        # Calculate log probability
+        u_log_prob = beta_dist.log_prob(u)
+        theta_log_prob = vonmises_dist.log_prob(theta)
+
+        action = np.array([u * np.cos(theta), u * np.sin(theta)])
+        log_probs = [u_log_prob, theta_log_prob]
 
         log_prob = tf.reduce_sum(log_probs)
-        if tf.reduce_any(tf.math.is_nan(action)):
-            print(f'nan action {action}')
-        if tf.reduce_any(tf.math.is_inf(action)):
-            print(f'inf action {action}')
-        if tf.math.is_nan(log_prob):
-            print(f'nan log probability {log_prob}')
-        if tf.math.is_inf(log_prob):
-            print(f'inf log probability {log_prob}')
 
         return action, log_prob
 
