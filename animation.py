@@ -171,7 +171,7 @@ class RocketAnimation(object):
         self.thrustax = self.fig.add_subplot(222)
         self.stateax = self.fig.add_subplot(224)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
-            self.states), blit=True, interval=100, repeat=False)
+            self.states), blit=False, interval=100, repeat=False)
         plt.show()
 
     def save_animation(self, name):
