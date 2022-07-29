@@ -153,8 +153,9 @@ class RocketAnimation(object):
 
         # max_value = np.max([np.abs(self.rs), np.abs(self.thetas)])
         max_value = np.max(np.abs(self.rs))
+        min_value = np.min(np.abs(self.rs))
         self.stateax.set_xlim(-0.5, i + 0.5)
-        self.stateax.set_ylim(-max_value*0.1, max_value*1.1)
+        self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
             self.thrustr, self.requested_thrustr, \
@@ -171,7 +172,7 @@ class RocketAnimation(object):
         self.thrustax = self.fig.add_subplot(222)
         self.stateax = self.fig.add_subplot(224)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
-            self.states), blit=False, interval=100, repeat=False)
+            self.states), blit=False, interval=10, repeat=False)
         plt.show()
 
     def save_animation(self, name):
