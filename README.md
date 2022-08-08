@@ -119,6 +119,12 @@ may be subject to change based on simulation accuracy and simulation
 speed, but it is around the magnitude of $.01$ or $.1$ based on the values
 given above.
 
+To ensure that observations stay in a resonable range for the network, we
+clipped velocity as well as the radius with the norm. Additionally, when the 
+craft hits some boundaries, it will loose all the velocity normal
+to the boundary in an inelastic collision. This ensures that the craft stays
+inbounds.
+
 ## Open AI Gym
 
 Open AI gym is one of the standard APIs for Reinforcement Learning. 
