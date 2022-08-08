@@ -12,7 +12,7 @@ def main():
                          memory=100000, start_updating=10000,
                          batch_size=32, learning_rate=1e-4, descent_frequency=16, update_frequency=1,
                          use_target=True, target_frequency=8)
-    model.load('./radial_2/')
+    # model.load('./dqn_test_5/')
     # rs = np.linspace(0.5, 1.5, 100)
     # rdts = np.linspace(-10, 10, 100)
     # rm, rdtm = np.meshgrid(rs, rdts)
@@ -28,13 +28,16 @@ def main():
     # plt.show()
 
     with rocket_gym.make('RocketCircularization-v0') as env:
+        # env = rocket_gym.PolarizeObservation(
+        #     rocket_gym.TangentialThrust(
+        #         rocket_gym.PolarizeAction(env)))
         env = rocket_gym.RadialObservation(
             rocket_gym.RadialThrust(
                 rocket_gym.PolarizeAction(env)))
-        # model.train(env, episodes=500, render_frequency=100)
-        # model.save('./dqn_test_4/')
+        # model.train(env, episodes=1000, render_frequency=1000)
+        # model.save('./dqn_test_5/')
 
-        # model.load('./dqn_test_1/')
+        model.load('./radial_4/')
         model.simulate(env, render=True, evaluation=True)
 
     # with rocket_gym.make('RocketCircularization-v0') as env:
@@ -47,7 +50,7 @@ def main():
     #     while not done:
     #         env.render()
 
-    #         new_state, reward, done, _ = env.step([0, -.1])
+    #         new_state, reward, done, _ = env.step([0, 0])
 
     #         state = new_state
 

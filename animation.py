@@ -194,8 +194,8 @@ class RocketAnimation(object):
 
     def _plot_thrust_magnitude(self, ax):
         ax.set_title('Thrust Magnitude')
-        ax.semilogy(self.thrusts_norm, label='thrust magnitude')
-        ax.semilogy(self.requested_thrusts_norm,
+        ax.plot(self.thrusts_norm, label='thrust magnitude')
+        ax.plot(self.requested_thrusts_norm,
                     label='requested thrust magnitude')
         ax.grid(True)
         ax.legend()
@@ -285,9 +285,9 @@ class RocketAnimation(object):
         self.requested_thrusts_norm = [np.linalg.norm(
             thrust) for thrust in self.requested_thrusts]
         self.thrust_direction = [np.arctan2(
-            thrust[1], thrust[0]) for thrust in self.thrusts]
+            thrust[1], thrust[0]) for thrust in self.thrusts_polar]
         self.requested_thrust_direction = [np.arctan2(
-            thrust[1], thrust[0]) for thrust in self.requested_thrusts]
+            thrust[1], thrust[0]) for thrust in self.requested_thrusts_polar]
 
     def render(self, state, thrust, requested_thrust, rmin, rtarget, rmax):
         '''

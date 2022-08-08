@@ -34,6 +34,16 @@ class RadialBalance(gym.Env):
         self.dt = 0.05
         self.max_thrust = 0.1
 
+        self.end_rmin, self.end_rmax = 0.98, 1.02
+        self.end_vmin, self.end_vmax = -.03, .03
+        self.end_steps = 20
+
+        self.end_energy_tolerance = 1e-4
+        self.end_energy = - 1 / self.rtarget + \
+            self.ltarget ** 2 / (2 * self.rtarget ** 2) + \
+            self.end_energy_tolerance
+        print(f'End Energy: {self.end_energy:.3f}')
+
         self.action_space = Box(low=-1, high=1, shape=(1,))
         self.observation_space = Box(low=np.array(
             [self.rmin, -10]), high=np.array([self.rmax, 10]), shape=(2,))
@@ -50,10 +60,19 @@ class RadialBalance(gym.Env):
         self.actions = []
         self.last_action = [0]
 
+        self.end_counter = 0
+
         return self.state
 
     def _reward(self, state, action):
-        return - (state[0] - self.rtarget) ** 2 - 0.1 * state[1] ** 2 - 0.001 * action[0]
+        return - (state[0] - self.rtarget) ** 2 - 0.1 * state[1] ** 2 # - 0.01 * action[0] ** 2
+
+    def _total_energy(self, state):
+        r, v = state
+        pe = - 1 / r + self.ltarget ** 2 / (2 * r ** 2)
+        ke = v**2 / 2
+
+        return pe + ke
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
         r, rdt = self.state
@@ -76,6 +95,14 @@ class RadialBalance(gym.Env):
         self.last_action = action
         reward = self._reward(self.state, action)
         self.iters += 1
+        if self.end_rmin < r < self.end_rmax and self.end_vmin < rdt < self.end_vmax:
+        # if self._total_energy(self.state) < self.end_energy:
+            self.end_counter += 1
+            if self.end_counter >= self.end_steps:
+                self.done = True
+        else:
+            self.end_counter = 0
+
         if self.iters > self.max_iters:
             self.done = True
 
@@ -85,13 +112,18 @@ class RadialBalance(gym.Env):
         self.record.append(self.state)
         self.actions.append(self.last_action[0])
 
-    def show(self):
+    def show(self, summary):
         record = np.array(self.record)
         time = np.arange(0, len(record), dtype=np.float64)
         time *= self.dt * self.simulation_steps
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
         ax1.plot(time, record[:, 0], label='r')
         ax1.plot(time, record[:, 1], label='$\dot{r}$')
+        ax1.axhline(y=self.end_rmax)
+        ax1.axhline(y=self.end_rmin)
+        ax1.axhline(y=self.end_vmax)
+        ax1.axhline(y=self.end_vmin)
+
         ax2.plot(time, self.actions)
         ax1.grid(True)
         ax2.grid(True)
@@ -105,7 +137,8 @@ class DiscretiseAction(gym.ActionWrapper):
 
         self.action_space = gym.spaces.Discrete(3)
 
-        # self.thrust_levels = [-1, -0.3, -0.1, 0, 0.1, 0.3, 1]
+        # self.thrust_levels = [-1, -0.1, -.01, 0, 0.01, 0.1, 1]
 
     def action(self, action):
         return np.array([action - 1])
+        # return np.array([self.thrust_levels[action]])

@@ -19,19 +19,18 @@ import matplotlib.pyplot as plt
 import gym
 from gym.spaces import Box
 from gym.utils import seeding
-from regex import R
 
 from animation import RocketAnimation
 
 
 def make(name):
     if name == 'RocketCircularization-v0':
-        return RocketEnv(max_step=200, simulation_step=10, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=100, dt=0.01, velocity_penalty_rate=0.001, thrust_penalty_rate=0.0001)
+        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=100, dt=0.03, velocity_penalty_rate=0.01, thrust_penalty_rate=0.01)
     else:
         raise ValueError(f'No environment {name}')
 
 
-def uniform(r_min=0.9, r_max=1.1, rdot_min=-0.05, rdot_max=0.05, thetadot_min=0.95, thetadot_max=1.05):
+def uniform(r_min=0.99, r_max=1.01, rdot_min=-0.05, rdot_max=0.05, thetadot_min=0.99, thetadot_max=1.01):
     def func():
         nonlocal r_min, r_max, rdot_min, rdot_max, thetadot_min, thetadot_max
 
@@ -39,6 +38,25 @@ def uniform(r_min=0.9, r_max=1.1, rdot_min=-0.05, rdot_max=0.05, thetadot_min=0.
         theta = np.random.uniform(0, 2 * np.pi)
         rdot = np.random.uniform(rdot_min, rdot_max)
         thetadot = np.random.uniform(thetadot_min, thetadot_max)
+
+        pos = [r, 0]
+        vel = [rdot, r * thetadot]
+
+        rot_mat = np.array([[np.cos(theta), -np.sin(theta)],
+                            [np.sin(theta), np.cos(theta)]])
+
+        return [*(rot_mat @ pos), *(rot_mat @ vel)]
+    return func
+
+
+def varied_l(r_min=0.5, r_max=1.5, rdot_min=-0.5, rdot_max=0.5, dl_min=-0.1, dl_max=0.1):
+    def func():
+        nonlocal r_min, r_max, rdot_min, rdot_max
+
+        r = np.random.uniform(r_min, r_max)
+        theta = np.random.uniform(0, 2 * np.pi)
+        rdot = np.random.uniform(rdot_min, rdot_max)
+        thetadot = (1 + np.random.uniform(dl_min, dl_max)) / r ** 2
 
         pos = [r, 0]
         vel = [rdot, r * thetadot]
@@ -74,10 +92,11 @@ def reward_function(state, action, rtarget, velocity_penalty_rate, thrust_penalt
     r, v = state[:2], state[2:]
     dist = np.linalg.norm(r)
     rhat = r / dist
-    rotation_matrix = np.array([[rhat[0], -rhat[1]], [rhat[1], rhat[0]]])
-    vtarget = rotation_matrix @ np.array([0, vtarget])
+    rotation_matrix = np.array([[rhat[0], rhat[1]], [-rhat[1], rhat[0]]])
+    vpolar = rotation_matrix @ v
 
-    return -(dist - rtarget) ** 2 - velocity_penalty_rate * np.linalg.norm(v - vtarget) ** 2 - thrust_penalty_rate * np.linalg.norm(action) ** 2
+    return -((dist - rtarget)**2) - 0.1 * vpolar[0] ** 2 - 0.1 * (vpolar[1] - vtarget)**2 - \
+        thrust_penalty_rate * np.linalg.norm(action) ** 2
 
 
 def score(state, rtarget, velocity_penalty_rate, G=1, M=1):
@@ -247,9 +266,13 @@ class RocketEnv(gym.Env):
         self.animation.render(self.state, self.last_action, self.last_action,
                               self.rmin, self.rtarget, self.rmax)
 
-    def show(self, path: Optional[str] = None) -> None:
+    def show(self, path: Optional[str] = None, summary: bool = False) -> None:
         if path is None:
-            self.animation.show_animation()
+            if summary:
+                self.animation.summary_plot()
+                plt.show()
+            else:
+                self.animation.show_animation()
         else:
             self.animation.save_animation(path)
 
@@ -287,8 +310,11 @@ class TangentialThrust(gym.ActionWrapper):
 
         self.action_space = gym.spaces.Discrete(3)
 
+        # self.thrust_levels = [-1, -0.1, -.01, 0, 0.01, 0.1, 1]
+
     def action(self, action):
         return np.array([0, action - 1])
+        # return np.array([0, self.thrust_levels[action]])
 
 
 class RadialThrust(gym.ActionWrapper):

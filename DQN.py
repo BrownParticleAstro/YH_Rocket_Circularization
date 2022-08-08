@@ -64,7 +64,7 @@ class DeepQNetwork(tf.keras.Model):
         else:
             return tf.argmax(output).numpy()
 
-    def simulate(self, env, render=False, evaluation=False):
+    def simulate(self, env, render=False, evaluation=False, graph=False):
         state = env.reset()
         done = False
 
@@ -89,7 +89,7 @@ class DeepQNetwork(tf.keras.Model):
             states.append(state)
 
         if render:
-            env.show()
+            env.show(summary=graph)
 
         return iters, total_rwd, states
 
@@ -124,13 +124,13 @@ class DeepQNetwork(tf.keras.Model):
     def _epsilon(self, step, total_steps):
         return self.epsilon_init * np.power(self.epsilon_decay, step / total_steps)
 
-    def train(self, env, episodes, render_frequency):
+    def train(self, env, episodes, render_frequency, summary=False):
         for episode in range(episodes):
             print(f'Episode: {episode}')
 
             self.epsilon = self._epsilon(episode, episodes)
             iters, total_rwd, _ = self.simulate(
-                env, render=(episode % render_frequency == 0))
+                env, render=(episode % render_frequency == 0), graph=summary)
             if len(self.replay) >= self.start_updating and episode % self.update_frequency == 0:
                 loss = self._update_weights(self.gamma)
                 print(
