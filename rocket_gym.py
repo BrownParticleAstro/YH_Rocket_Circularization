@@ -10,7 +10,8 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    Dict
+    Dict,
+    Callable
 )
 
 import numpy as np
@@ -24,13 +25,43 @@ from animation import RocketAnimation
 
 
 def make(name):
+    '''
+    Initialize Rocket Circularization environment. Contains the environment hyperparameters
+
+    Usage:
+    ```python
+    env = make('RocketCircularization-v0')
+    ```
+    or in notebooks
+    ```python
+    with make('RocketCircularization-v0') as env:
+        ...
+    ```
+    '''
     if name == 'RocketCircularization-v0':
-        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=100, dt=0.03, velocity_penalty_rate=0.01, thrust_penalty_rate=0.01)
+        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=100, dt=0.03, velocity_penalty_rate=0.1, thrust_penalty_rate=0.01)
     else:
         raise ValueError(f'No environment {name}')
 
 
-def uniform(r_min=0.99, r_max=1.01, rdot_min=-0.05, rdot_max=0.05, thetadot_min=0.99, thetadot_max=1.01):
+def uniform(r_min: float = 0.99, r_max: float = 1.01,
+            rdot_min: float = -0.05, rdot_max: float = 0.05,
+            thetadot_min: float = 0.99, thetadot_max: float = 1.01) \
+        -> Callable[[], List[np.float32]]:
+    '''
+    Produces a function that generates initial conditions at different angles uniformly under those
+    conditions
+
+    r_min: minimum bound for radius
+    r_max: maximum bound for radius
+    rdot_min: minimum bound for radial velocity
+    rdot_max: maximum bound for radial velocity
+    thetadot_min: minimum bound for angular velocity
+    thetadot_max: maximum bound for angular velocity
+
+    Return:
+        A function that when called, returns an initial condition
+    '''
     def func():
         nonlocal r_min, r_max, rdot_min, rdot_max, thetadot_min, thetadot_max
 
@@ -49,7 +80,24 @@ def uniform(r_min=0.99, r_max=1.01, rdot_min=-0.05, rdot_max=0.05, thetadot_min=
     return func
 
 
-def varied_l(r_min=0.5, r_max=1.5, rdot_min=-0.5, rdot_max=0.5, dl_min=-0.1, dl_max=0.1):
+def varied_l(r_min: float = 0.5, r_max: float = 1.5,
+             rdot_min: float = -0.5, rdot_max: float = 0.5,
+             dl_min: float = -0.1, dl_max: float = 0.1) \
+        -> Callable[[], List[np.float32]]:
+    '''
+    Produces a function that generates initial conditions at different angles uniformly with
+    a range of angular momentum settings
+
+    r_min: minimum bound for radius
+    r_max: maximum bound for radius
+    rdot_min: minimum bound for radial velocity
+    rdot_max: maximum bound for radial velocity
+    dl_min: minimum deviation of angular momentum from target angular momentum
+    dl_max: maximum deviation of angular momentum from target angular momentum
+
+    Return:
+        A function that when called, returns an initial condition
+    '''
     def func():
         nonlocal r_min, r_max, rdot_min, rdot_max
 
@@ -68,7 +116,21 @@ def varied_l(r_min=0.5, r_max=1.5, rdot_min=-0.5, rdot_max=0.5, dl_min=-0.1, dl_
     return func
 
 
-def target_l(r_min=0.5, r_max=1.5, rdot_min=-0.5, rdot_max=0.5):
+def target_l(r_min: float = 0.5, r_max: float = 1.5,
+             rdot_min: float = -0.5, rdot_max: float = 0.5) \
+        -> Callable[[], List[np.float32]]:
+    '''
+    Produces a function that generates initial conditions at different angles uniformly 
+    with the target angular momentum
+
+    r_min: minimum bound for radius
+    r_max: maximum bound for radius
+    rdot_min: minimum bound for radial velocity
+    rdot_max: maximum bound for radial velocity
+
+    Return:
+        A function that when called, returns an initial condition
+    '''
     def func():
         nonlocal r_min, r_max, rdot_min, rdot_max
 
@@ -87,7 +149,26 @@ def target_l(r_min=0.5, r_max=1.5, rdot_min=-0.5, rdot_max=0.5):
     return func
 
 
-def reward_function(state, action, rtarget, velocity_penalty_rate, thrust_penalty_rate, G=1, M=1):
+def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
+                    velocity_penalty_rate: float, thrust_penalty_rate: float,
+                    G: float = 1, M: float = 1) -> np.float32:
+    '''
+    Calculates the reward at the current state with the current action. Subject to change.
+
+    reward = -(r - rtarget)^2 - velocity_penalty * (v_r^2 + (v_t - v_t,target)^2) - thrust_penalty * |u|^2
+
+    state: the current game state
+    action: actions performed to reach this state
+    rtarget: target radius of the craft
+    velocity_penalty_rate: ratio of velocity penalty to radius penalty
+    thrust_penalty_rate: ratio of thrust penalty to radius penalty
+
+    G: Gravitational Constant, default 1
+    M: Mass of center object, default 1
+
+    Return:
+        Reward in this state
+    '''
     vtarget = np.sqrt(G * M / rtarget)
     r, v = state[:2], state[2:]
     dist = np.linalg.norm(r)
@@ -95,11 +176,30 @@ def reward_function(state, action, rtarget, velocity_penalty_rate, thrust_penalt
     rotation_matrix = np.array([[rhat[0], rhat[1]], [-rhat[1], rhat[0]]])
     vpolar = rotation_matrix @ v
 
-    return -((dist - rtarget)**2) - 0.1 * vpolar[0] ** 2 - 0.1 * (vpolar[1] - vtarget)**2 - \
-        thrust_penalty_rate * np.linalg.norm(action) ** 2
+    return -((dist - rtarget)**2) \
+        - velocity_penalty_rate * (vpolar[0] ** 2 + (vpolar[1] - vtarget)**2) \
+        - thrust_penalty_rate * np.linalg.norm(action) ** 2
 
 
-def score(state, rtarget, velocity_penalty_rate, G=1, M=1):
+def score(state: np.ndarray, rtarget: float,  velocity_penalty_rate: float,
+          G: float = 1, M: float = 1) -> np.float32:
+    '''
+    DEPRECATED
+    Calculates the reward at the current state without action penalty. Subject to change.
+    This may be used for a differential reward structure
+
+    score = -(r - rtarget)^2 - velocity_penalty * (v_r^2 + (v_t - v_t,target)^2)
+
+    state: the current game state
+    rtarget: target radius of the craft
+    velocity_penalty_rate: ratio of velocity penalty to radius penalty
+
+    G: Gravitational Constant, default 1
+    M: Mass of center object, default 1
+
+    Return:
+        Score in this state
+    '''
     vtarget = np.sqrt(G * M / rtarget)
     r, v = state[:2], state[2:]
     dist = np.linalg.norm(r)
@@ -110,15 +210,49 @@ def score(state, rtarget, velocity_penalty_rate, G=1, M=1):
     return -np.abs(dist - rtarget) - velocity_penalty_rate * np.sum(np.abs(v - vtarget))
 
 
-# def reward_function(state, action, prev_score, rtarget, velocity_penalty_rate, thrust_penalty_rate, G=1, M=1):
-#     curr_score = score(state, rtarget, velocity_penalty_rate, G=G, M=M)
+# def reward_function(state: np.ndarray, action: np.ndarray, prev_score: np.float32, rtarget: float,
+#                     velocity_penalty_rate: float, thrust_penalty_rate: float,
+#                     G: float=1, M: float=1) -> np.float32:
+#     '''
+#     DEPRECATED
+#     Calculates the reward at the current state with action penalty. Subject to change.
+#     This may be used for a differential reward structure
 
+#     reward = current_score - prev_score + thrust_penalty * |u|^2
+
+#     state: the current game state
+#     action: actions performed to reach this state
+#     prev_score: score from the last time the reward is calculated
+#     rtarget: target radius of the craft
+#     velocity_penalty_rate: ratio of velocity penalty to radius penalty
+#     thrust_penalty_rate: ratio of thrust penalty to radius penalty
+
+#     G: Gravitational Constant, default 1
+#     M: Mass of center object, default 1
+
+#     Return:
+#         Reward at this state
+#     '''
+#     curr_score = score(state, rtarget, velocity_penalty_rate, G=G, M=M)
 #     return curr_score - prev_score - thrust_penalty_rate * np.sum(np.abs(action)), curr_score
 
 
-def clip_by_norm(t, mins, maxs):
+def clip_by_norm(t: np.ndarray, mins: float, maxs: float) -> np.ndarray:
+    '''
+    Clip the vector by its l2 norm between an interval.
+
+    t: the vector to clip
+    mins: the minimum norm
+    maxs: the maximum norm
+
+    Return:
+        Clipped vector
+
+    Raises:
+        ValueError: when norm of input vector is zero and minimum is not zero
+    '''
     norm = np.linalg.norm(t)
-    if np.count_nonzero(t) == 0:
+    if np.count_nonzero(t) == 0 and mins > 0:
         raise ValueError('Trying to clip norm of zero vector')
     if norm < mins:
         t = t * mins / norm
@@ -128,11 +262,26 @@ def clip_by_norm(t, mins, maxs):
     return t
 
 
-def wall_clip_velocity(v, r, mins, maxs):
+def wall_clip_velocity(v: np.ndarray, r: np.ndarray, mins: float, maxs: float):
+    '''
+    If the particle is moving towards the circular boundaries, cancel velocity perpendicular to the boundary
+    
+    v: velocity vector
+    r: position vector
+    mins: minimum radius
+    maxs: maximum radius
+    
+    Return: 
+        Velocity vector modified by the walls
+    '''
+    # Obtain the velocity component orthogonal to the circular boundaries
     direction = v @ r
     along = (v @ r) / (r @ r) * r
     ortho = v - along
+    
+    # Get the distance from origin to test if the object is at the bounds
     dist = np.linalg.norm(r)
+    
     # If there is a component facing in at minimum radius
     if dist < mins and direction < 0:
         return ortho
