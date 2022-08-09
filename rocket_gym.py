@@ -265,12 +265,12 @@ def clip_by_norm(t: np.ndarray, mins: float, maxs: float) -> np.ndarray:
 def wall_clip_velocity(v: np.ndarray, r: np.ndarray, mins: float, maxs: float):
     '''
     If the particle is moving towards the circular boundaries, cancel velocity perpendicular to the boundary
-    
+
     v: velocity vector
     r: position vector
     mins: minimum radius
     maxs: maximum radius
-    
+
     Return: 
         Velocity vector modified by the walls
     '''
@@ -278,10 +278,10 @@ def wall_clip_velocity(v: np.ndarray, r: np.ndarray, mins: float, maxs: float):
     direction = v @ r
     along = (v @ r) / (r @ r) * r
     ortho = v - along
-    
+
     # Get the distance from origin to test if the object is at the bounds
     dist = np.linalg.norm(r)
-    
+
     # If there is a component facing in at minimum radius
     if dist < mins and direction < 0:
         return ortho
@@ -293,11 +293,39 @@ def wall_clip_velocity(v: np.ndarray, r: np.ndarray, mins: float, maxs: float):
 
 
 class RocketEnv(gym.Env):
+    '''
+    Open AI Gym environment for Rocket Circularization
+    '''
+
     def __init__(self,
                  G: float = 1, M: float = 1, m: float = .01, dt: float = .01,
                  rmin: float = .1, rmax: float = 2, rtarget: float = 1, vmax: float = 10, oob_penalty: float = 10,
                  max_thrust: float = .1, clip_thrust: str = 'Ball', velocity_penalty_rate: float = .001, thrust_penalty_rate: float = .0001,
                  max_step: int = 500, simulation_step: int = 10) -> None:
+        '''
+        Initializes the environment
+
+        G: Gravitational Constant, default 1
+        M: Mass of center object, default 1
+        m: Mass of orbiting object, default .01
+        dt: Simulation time step, default .01
+
+        rmin: game space radius lower bound, default .1
+        rmax: game space radius upper bound, default 2
+        rtarget: the target radius the craft is supposed to reach, default 1
+        vmax: maximum velocity allowed in the game space (implemented for simulation accuracy and network interpolation), default 10
+        oob_penalty: DEPRECATED, penalty for being out of bounds, default 10
+
+        max_thrust: The magnitude of the thrust, scales the action u
+        clip_thrust: The way in which the action is clipped, Options: Box, Ball, None, default: Ball
+
+        velocity_penalty_rate: the penalty of velocity as a ratio of radius penalty
+        thrust_penalty_rate: the penalty of thrust as a ratio of radius penalty
+
+        max_step: number of iterations in each episode if no early-termination is encountered, default: 500
+        simulation_step: number of simulation steps for every game step. Reducing timestep and increasing simulation step
+                increases simulation accuracy, but may be more computationally straining
+        '''
         super().__init__()
 
         self.observation_space = Box(low=np.array([-rmax, -rmax, -vmax, -vmax]),
@@ -319,6 +347,7 @@ class RocketEnv(gym.Env):
         self.max_step, self.simulation_step = max_step, simulation_step
         self.iters = 0
 
+        # Animation object
         lim = rmax * 1.1
         self.animation = RocketAnimation(r_min=rmin, r_target=rtarget, r_max=rmax, xlim=(-lim, lim), ylim=(-lim, lim),
                                          markersize=10, circle_alpha=1, t_vec_len=.1)
