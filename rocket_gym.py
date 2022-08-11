@@ -39,7 +39,8 @@ def make(name):
     ```
     '''
     if name == 'RocketCircularization-v0':
-        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=100, dt=0.03, velocity_penalty_rate=0.01, thrust_penalty_rate=0.01)
+        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=100, dt=0.03,
+                         velocity_penalty_rate=0.1, thrust_penalty_rate=0.01)
     else:
         raise ValueError(f'No environment {name}')
 
@@ -360,7 +361,7 @@ class RocketEnv(gym.Env):
         if options is not None and 'init_func' in options:
             init_func = options['init_func']
         else:
-            init_func = target_l()
+            init_func = varied_l()
 
         self.state = np.array(init_func())
         self.init_state = self.state
