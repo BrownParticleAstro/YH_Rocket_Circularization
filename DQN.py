@@ -5,6 +5,8 @@ import gym
 import collections
 import pickle
 
+from tqdm import tqdm
+
 from typing import (
     Any,
     Generic,
@@ -234,7 +236,7 @@ class DeepQNetwork(tf.keras.Model):
         '''
 
         # Descent multiple times
-        for updates in range(self.descent_frequency):
+        for updates in (pbar := tqdm(range(self.descent_frequency))):
             # Sample from replay buffer
             states, actions, rewards, dones, new_states = self.replay.sample(
                 self.batch_size)
@@ -263,6 +265,7 @@ class DeepQNetwork(tf.keras.Model):
                 grad = tape.gradient(loss, self.q_net.trainable_variables)
                 self.optimizer.apply_gradients(
                     zip(grad, self.q_net.trainable_variables))
+            pbar.set_postfix({'loss': loss})
 
         return loss
 

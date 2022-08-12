@@ -83,7 +83,7 @@ def uniform(r_min: float = 0.99, r_max: float = 1.01,
 
 def varied_l(r_min: float = 0.5, r_max: float = 1.5,
              rdot_min: float = -0.5, rdot_max: float = 0.5,
-             dl_min: float = -0.1, dl_max: float = 0.1) \
+             dl_min: float = -0.5, dl_max: float = 0.5) \
         -> Callable[[], List[np.float32]]:
     '''
     Produces a function that generates initial conditions at different angles uniformly with
@@ -373,7 +373,7 @@ class RocketEnv(gym.Env):
         if options is not None and 'init_func' in options:
             init_func = options['init_func']
         else:
-            init_func = target_l()
+            init_func = varied_l()
 
         self.state = np.array(init_func())
         self.init_state = self.state
