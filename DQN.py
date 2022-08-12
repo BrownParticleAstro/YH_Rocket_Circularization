@@ -236,7 +236,8 @@ class DeepQNetwork(tf.keras.Model):
         '''
 
         # Descent multiple times
-        for updates in (pbar := tqdm(range(self.descent_frequency))):
+        pbar = tqdm(range(self.descent_frequency))
+        for updates in pbar:
             # Sample from replay buffer
             states, actions, rewards, dones, new_states = self.replay.sample(
                 self.batch_size)
