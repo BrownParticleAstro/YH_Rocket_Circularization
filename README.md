@@ -106,12 +106,8 @@ we set natural units for the system, i.e. $G=1$, $M=1$. Additionally,
 we set $m=.01$.
 
 We use the Euler-Cromer Method to approximate the motion:
-$$
-\begin{cases}
-\mathbf{v}_{t+1} = \mathbf{v}_t + \mathbf{a}_{net, t} \cdot \Delta t \\
-\mathbf{r}_{t+1} = \mathbf{r}_t + \mathbf{v}_{t+1} \cdot \Delta t
-\end{cases}
-$$
+$$\mathbf{v}_{t+1} = \mathbf{v}_t + \mathbf{a}_{net, t} \cdot \Delta t$$
+$$\mathbf{r}_{t+1} = \mathbf{r}_t + \mathbf{v}_{t+1} \cdot \Delta t$$
 where $\mathbf{r_t}$, $\mathbf{v_t}$ are position and velocity of the 
 object at timestep $t$ respectively. $a_{net, t}$ is the total acceleration 
 of the object at timestep $t$. The timestep is $\Delta t$. The timestep
