@@ -126,6 +126,7 @@ class DeepQNetwork(tf.keras.Model):
         '''
         super().__init__()
 
+        self.dims = dims
         self.q_net = create_mlp(dims, final_activation='linear')
         self.use_target = use_target
 
@@ -160,10 +161,10 @@ class DeepQNetwork(tf.keras.Model):
         Return: 
             The action being performed
         '''
-        output = self.q_net(state.reshape((1, -1)))[0]
         if not evaluation and np.random.uniform() < self.epsilon:
-            return np.random.randint(0, len(output))
+            return np.random.randint(0, self.dims[-1])
         else:
+            output = self.q_net(state.reshape((1, -1)))[0]
             return tf.argmax(output).numpy()
 
     def simulate(self, env: gym.Env,
