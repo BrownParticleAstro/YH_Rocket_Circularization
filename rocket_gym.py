@@ -83,7 +83,7 @@ def uniform(r_min: float = 0.99, r_max: float = 1.01,
 
 def varied_l(r_min: float = 0.5, r_max: float = 1.5,
              rdot_min: float = -0.5, rdot_max: float = 0.5,
-             dl_min: float = -0.5, dl_max: float = 0.5) \
+             dl_min: float = -1, dl_max: float = .5) \
         -> Callable[[], List[np.float32]]:
     '''
     Produces a function that generates initial conditions at different angles uniformly with
