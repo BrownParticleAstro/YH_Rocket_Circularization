@@ -40,7 +40,7 @@ def make(name):
     '''
     if name == 'RocketCircularization-v0':
         return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=100, dt=0.03,
-                         velocity_penalty_rate=0.1, thrust_penalty_rate=0.01)
+                         velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     else:
         raise ValueError(f'No environment {name}')
 
@@ -356,12 +356,24 @@ class RocketEnv(gym.Env):
     def reset(self, seed: Optional[int] = None,
               return_info: bool = False,
               options: Optional[dict] = None) -> Union[np.ndarray, Tuple[np.ndarray, dict]]:
+        '''
+        Resets the environment with a new state, return the new state as well as information
+        if required.
+
+        seed: NOT IMPLEMENTED, randomizer seed
+        return_info: If information is returned
+        options: some options for initialization
+                init_func: the function used to initialize the state, provided uniform, target_l, varied_l
+
+        Return:
+            the initial state, shape (4,)
+        '''
         # super().reset(seed=seed)
 
         if options is not None and 'init_func' in options:
             init_func = options['init_func']
         else:
-            init_func = varied_l()
+            init_func = target_l()
 
         self.state = np.array(init_func())
         self.init_state = self.state
@@ -384,9 +396,21 @@ class RocketEnv(gym.Env):
 
     def step(self, action: np.ndarray) -> Union[Tuple[np.ndarray, float, bool, bool, dict],
                                                 Tuple[np.ndarray, float, bool, dict]]:
+        '''
+        Accept action and modify the states accordingly. 
+
+        action: an array with shape (2,) representing the thrust component in the 2 cartesian directions.
+
+        Return:
+            state, shape (2,),
+            reward from this state,
+            if the game is done running, and
+            some more info about the game
+        '''
         if self.done:
             print('Warning: Stepping after done is True')
 
+        # Clipp action if needed
         action = np.array(action)
         if self.clip_thrust == 'Box':
             action = np.clip(action, -1, 1)
@@ -400,30 +424,35 @@ class RocketEnv(gym.Env):
             raise ValueError(
                 f'Thrust clipping mode {self.clip_thrust} does not exist')
 
+        # For easy access from wrappers
         self.last_action = action
 
         r, v = self.state[:2], self.state[2:]
         reward = 0
         info = dict()
 
+        # Simulate for a number of steps
         for _ in range(self.simulation_step):
             # Calculate total force
             gravitational_force = - (self.G * self.M * self.m) / \
                 (np.power(np.linalg.norm(r), 3)) * r  # F = - GMm/|r|^3 * r
-            # Point the thrust radially
             thrust_force = action * self.m * self.max_thrust
             total_force = gravitational_force + thrust_force
             # Update position and location, this can somehow guarantee energy conservation
+            # If the craft hits a wall, all normal velocity cancels
             v = v + total_force / self.m * self.dt
             v = clip_by_norm(v, 0, self.vmax)
             r = r + v * self.dt
             v = wall_clip_velocity(v, r, self.rmin, self.rmax)
             r = clip_by_norm(r, self.rmin, self.rmax)
+            # Scored-based reward structure
             reward += reward_function(np.array([*r, *v]), action, self.rtarget, self.velocity_penalty_rate,
                                       self.thrust_penalty_rate, self.G, self.M)
+            # Differential-score-based Reward structure
             # step_reward, self.prev_score = reward_function(np.array([*r, *v]), action, self.prev_score, self.rtarget, self.velocity_penalty_rate,
             #                                                self.thrust_penalty_rate, self.G, self.M)
             # reward += step_reward * self.dt
+
             # If out-of-bounds, end the game
             # if np.linalg.norm(r) > self.rmax or np.linalg.norm(r) < self.rmin:
             #     print('Out-of-Bounds')
@@ -442,10 +471,24 @@ class RocketEnv(gym.Env):
         return self.state, reward, self.done, info
 
     def render(self, *args: Tuple[Any], **kwargs: Dict[str, Any]) -> None:
+        '''
+        Record frames of the animation. Need to be used in conjunction with the
+        show() method.
+        '''
         self.animation.render(self.state, self.last_action, self.last_action,
                               self.rmin, self.rtarget, self.rmax)
 
     def show(self, path: Optional[str] = None, summary: bool = False) -> None:
+        '''
+        Show the saved frames of the animation or produce a summary
+
+        path: if the animation is saved, the path to which it is saved. If None, the 
+                animation is shown in a pop-up window. Note that pop-up window 
+                animation does not work in notebooks, and need to be closed for
+                the execution to continue. default, None
+        summary: if animation is not saved, if to produce a summary plot of the game 
+                episode instead.
+        '''
         if path is None:
             if summary:
                 self.animation.summary_plot()
@@ -456,24 +499,30 @@ class RocketEnv(gym.Env):
             self.animation.save_animation(path)
 
 
-class DiscretiseAction(gym.ActionWrapper):
-    def __init__(self, env: gym.Env):
-        super().__init__(env)
-
-        self.action_space = gym.spaces.Discrete(9)
-        self.thrust_vectors = [
-            [0, 0]] + [[np.cos(th), np.sin(th)] for th in np.linspace(0, 2 * np.pi, 8, endpoint=False)]
-
-    def action(self, action):
-        action = self.thrust_vectors[action]
-        return np.array(action)
-
-
 class PolarizeAction(gym.ActionWrapper):
-    def __init__(self, env: gym.Env):
+    '''
+    Wrapper for RocketEnv. Convert polar thrust request to cartesian. Note that the
+    cartesian thrust value will not rotate with the state during the simulation step.
+    '''
+
+    def __init__(self, env: gym.Env) -> None:
+        '''
+        Initialize the wrapper.
+
+        env: The environment to wrap
+        '''
         super().__init__(env)
 
-    def action(self, action):
+    def action(self, action: np.ndarray) -> np.ndarray:
+        '''
+        Convert polar thrust requests to cartesian given the current position.
+
+        action: 1D numpy array of shape (2,). The components corresponds to the radial
+                and tangential components of the thrust respectively.
+
+        Return:
+            numpy array of shape (2,). The thrust in cartesian coordinates.
+        '''
         state = self.unwrapped.state
         r, v = state[:2], state[2:]
         dist = np.linalg.norm(r)
@@ -483,37 +532,140 @@ class PolarizeAction(gym.ActionWrapper):
         return rotation_matrix @ action
 
 
+class DiscretiseAction(gym.ActionWrapper):
+    '''
+    Wrapper for RocketEnv. Provides 9 discrete thrust levels, no thrust, 4 cardinal directions, and 4 diagonal
+    directions with unit length. Need to be combined with PolarizeAction to become polar.
+    '''
+
+    def __init__(self, env: gym.Env) -> None:
+        '''
+        Initialize the wrapper.
+
+        env: The environment to wrap, preferably with polar thrust
+        '''
+        super().__init__(env)
+
+        self.action_space = gym.spaces.Discrete(9)
+        self.thrust_vectors = [
+            [0, 0]] + [[np.cos(th), np.sin(th)] for th in np.linspace(0, 2 * np.pi, 8, endpoint=False)]
+
+    def action(self, action: int) -> np.ndarray:
+        '''
+        Map integers to their correspnding thrust value.
+        0 represents no thrust, 1-8 represents the other directions in counter-clockwise
+        direction from the x-axis. 
+
+        action: integer value thrust choice
+
+        Return:
+            1d numpy array of shape (2,), representing the thrust value for this iteration.
+        '''
+        action = self.thrust_vectors[action]
+        return np.array(action)
+
+
 class TangentialThrust(gym.ActionWrapper):
+    '''
+    Wrapper for RocketEnv. Provides 3 discrete thrust vectors in the tangential direction
+    with unit length. Note that it needs to be used in conjuction with PolarizeAction for
+    the thrust values to point in the tangential direction.
+    '''
+
     def __init__(self, env: gym.Env):
+        '''
+        Initialize the wrapper.
+
+        env: The environment to wrap, preferably with polar thrust
+        '''
         super().__init__(env)
 
         self.action_space = gym.spaces.Discrete(3)
 
+        # For more detailed control
         # self.thrust_levels = [-1, -0.1, -.01, 0, 0.01, 0.1, 1]
 
     def action(self, action):
+        '''
+        Map integers to their correspnding thrust value.
+        0: clockwise thrust
+        1: no thrust
+        2: counter-clockwise thrust
+
+        action: integer value thrust choice
+
+        Return:
+            1d numpy array of shape (2,), representing the thrust value for this iteration.
+        '''
         return np.array([0, action - 1])
+
+        # For more detailed control
         # return np.array([0, self.thrust_levels[action]])
 
 
 class RadialThrust(gym.ActionWrapper):
+    '''
+    Wrapper for RocketEnv. Provides 3 discrete thrust vectors in the radial direction 
+    with unit length. Need to be used in conjunction with PolarizeAction for the
+    thrust values to point in the radial direction.
+    '''
+
     def __init__(self, env: gym.Env):
+        '''
+        Initialize the wrapper.
+
+        env: The environment to wrap, preferably with polar thrust
+        '''
         super().__init__(env)
 
         self.action_space = gym.spaces.Discrete(3)
 
+        # For more detailed control
         # self.thrust_levels = [-1, -0.3, -0.1, 0, 0.1, 0.3, 1]
 
-    def action(self, action):
+    def action(self, action: int) -> np.ndarray:
+        '''
+        Map integers to their correspnding thrust value.
+        0: thrust inwards
+        1: no thrust
+        2: thrust outwards
+
+        action: integer value thrust choice
+
+        Return:
+            1d numpy array of shape (2,), representing the thrust value for this iteration.
+        '''
+        # For more detailed control
         # return np.array([self.thrust_levels[action], 0])
+
         return np.array([action - 1, 0])
 
 
 class PolarizeObservation(gym.ObservationWrapper):
-    def __init__(self, env):
+    '''
+    Wrapper for RocketEnv. Wraps state to provide radius, radial velocity, and tangential
+    velocity.
+    '''
+
+    def __init__(self, env: gym.Env) -> None:
+        '''
+        Initialize the wrapper.
+
+        env: The environment to wrap
+        '''
         super().__init__(env)
 
-    def observation(self, obs):
+    def observation(self, obs: np.ndarray) -> np.ndarray:
+        '''
+        Given the observation in cartesian coordinates, convert to polar observation.
+
+        obs: numpy array with shape (4,). State vector with first 2 as cartesian position
+                and last 2 as cartesian velocity
+
+        Return
+            numpy array with shape (3,) with radius, radial velocity, and tangential velocity,
+            in that order.
+        '''
         r, v = obs[:2], obs[2:]
         dist = np.linalg.norm(r)
         rhat = r / dist
@@ -523,10 +675,25 @@ class PolarizeObservation(gym.ObservationWrapper):
 
 
 class RadialObservation(gym.ObservationWrapper):
-    def __init__(self, env):
+    def __init__(self, env: gym.Env) -> None:
+        '''
+        Initialize the wrapper.
+
+        env: The environment to wrap
+        '''
         super().__init__(env)
 
-    def observation(self, obs):
+    def observation(self, obs: np.ndarray) -> np.ndarray:
+        '''
+        Given the observation in cartesian coordinates, convert to observation with
+        only radial position and velocity.
+
+        obs: numpy array with shape (4,). State vector with first 2 as cartesian position
+                and last 2 as cartesian velocity
+
+        Return
+            numpy array with shape (2,) with radius and radial velocity, in that order.
+        '''
         r, v = obs[:2], obs[2:]
         dist = np.linalg.norm(r)
         rhat = r / dist
