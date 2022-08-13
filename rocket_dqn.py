@@ -37,7 +37,7 @@ def main():
         # model.train(env, episodes=1000, render_frequency=1000)
         # model.save('./dqn_test_5/')
 
-        model.load('./dqn_test_10/')
+        model.load('./dqn_test_11/')
         model.simulate(env, render=True, evaluation=True)
 
     # with rocket_gym.make('RocketCircularization-v0') as env:
