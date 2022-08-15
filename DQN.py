@@ -180,7 +180,8 @@ class DeepQNetwork(tf.keras.Model):
         env: The gym environment to run the episode in
 
         evaluation: Whether to act with epsilon-randomness. When in 
-                evaluation, outputs are deterministic
+                evaluation, outputs are deterministic, and experiences
+                are not saved
         render: Whether to generate an animation or summary after the 
                 simulation
         graph: Whether to generate a summary. Only valid when `render=True`
@@ -209,8 +210,9 @@ class DeepQNetwork(tf.keras.Model):
             action = self.act(state, evaluation=evaluation)
             new_state, reward, done, _ = env.step(action)
 
-            record = Experience(state, action, reward, done, new_state)
-            self.replay.append(record)
+            if not evaluation:
+                record = Experience(state, action, reward, done, new_state)
+                self.replay.append(record)
 
             state = new_state
 
@@ -286,7 +288,9 @@ class DeepQNetwork(tf.keras.Model):
 
     def train(self, env: gym.Env,
               episodes: int, render_frequency: int,
-              summary: bool = False) -> None:
+              summary: bool = False,
+              vdo_frequency: Optional[int] = None,
+              vdo_path: Optional[str] = None) -> None:
         '''
         Train the DQN agent for a certain number of episodes
 
@@ -298,6 +302,11 @@ class DeepQNetwork(tf.keras.Model):
                 Notebook. After viewing the pop-up animation, it needs to be
                 closed for the training to continue.
                 (Just set summary=True whenever you can)
+
+        vdo_frequency: Number of episodes before a video is generated and saved.
+                If None, no video is generated. A vdo path is required if a vdo is generated.
+                default None
+        vdo_path: the path to which the video is saved, renamed with episode name
         '''
         for episode in range(episodes):
             print(f'Episode: {episode}')
@@ -307,6 +316,11 @@ class DeepQNetwork(tf.keras.Model):
             # Simulate Step
             iters, total_rwd, _ = self.simulate(
                 env, render=(episode % render_frequency == 0), graph=summary)
+
+            # Video with evaluation
+            if vdo_frequency is not None and episode % vdo_frequency == 0:
+                assert vdo_path is not None
+                _, _, _ = self.simulate(env, render=True, evaluation=True, path=vdo_path+f'{episode}.mp4')
 
             # Update with regards to frequency when replay buffer is large
             # enough to not cause over-fitting
