@@ -78,7 +78,7 @@ class RocketAnimation(object):
             *self._circle(self.r_max), '--', label='Maximum Radius')
 
         self.ax.grid(True)
-        self.ax.legend()
+        self.ax.legend(loc='upper left')
 
         # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
         # self.thrusttheta, = self.thrustax.plot(
@@ -92,13 +92,13 @@ class RocketAnimation(object):
             [], [], label='requested thrust magnitude')
 
         self.thrustax.grid(True)
-        self.thrustax.legend()
+        self.thrustax.legend(loc='upper right')
 
         self.stater, = self.stateax.plot([], [], label='state r')
         self.statetheta, = self.stateax.plot([], [], label='state $\\theta$')
 
         self.stateax.grid(True)
-        self.stateax.legend()
+        self.stateax.legend(loc='upper right')
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
             self.thrustr, self.requested_thrustr,\
