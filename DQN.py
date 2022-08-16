@@ -1,5 +1,8 @@
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 import gym
 
 import collections
@@ -44,8 +47,12 @@ class ExperienceReplay:
 
         buffer: Structure that stores the experiences. It discards old
                 elements when the capacity is full
+        updates_since_last_batch: number of data entries since the last
+                time the buffer is sampled
         '''
         self.buffer: collections.deque = collections.deque(maxlen=capacity)
+        self.num_updates: int = 0
+        self.updates_since_last_batch: int = 0
 
     def __len__(self) -> int:
         '''
@@ -63,6 +70,26 @@ class ExperienceReplay:
         experience: an experience record
         '''
         self.buffer.append(experience)
+        self.updates_since_last_batch += 1
+        self.num_updates += 1
+
+    def updates_since_sample(self,) -> int:
+        '''
+        Returns the number of new data points since the last time the data is sampled
+
+        Return:
+            the number of new data points since the last time the data is sampled
+        '''
+        return self.updates_since_last_batch
+
+    def updates(self,) -> int:
+        '''
+        Returns the total number of buffer updates
+
+        Return:
+            The total number of buffer updates
+        '''
+        return self.num_updates
 
     def sample(self, batch_size: int) \
             -> Tuple[np.ndarray, np.ndarray, np.ndarray, List, np.ndarray]:
@@ -80,6 +107,8 @@ class ExperienceReplay:
                                    replace=False)
         states, actions, rewards, dones, next_states = zip(
             *[self.buffer[idx] for idx in indices])
+
+        self.updates_since_last_batch = 0
         return np.array(states), np.array(actions), \
             np.array(rewards, dtype=np.float32), \
             list(dones), np.array(next_states) \
@@ -96,7 +125,7 @@ class DeepQNetwork(tf.keras.Model):
                  epsilon: float, epsilon_decay: float, gamma: float,
                  memory: int, start_updating: int,
                  batch_size: int, learning_rate: float,
-                 descent_frequency: int, update_frequency: int,
+                 descent_frequency: int, update_every: int,
                  use_target: bool, target_frequency: int) -> None:
         '''
         Initializes a DQN agent
@@ -119,7 +148,8 @@ class DeepQNetwork(tf.keras.Model):
         learning_rate: the learning rate during update
 
 
-        update_frequency: number of simulations between each update
+        update_every: minimum number of new experiences generated between 
+                each network update
         descent_frequency: number of gradient descents during each update
         use_target: if DQN use target networks while updating. When false, 
                 would have the same effect as target_frequency=1
@@ -147,7 +177,7 @@ class DeepQNetwork(tf.keras.Model):
 
         self.batch_size = batch_size
         self.descent_frequency = descent_frequency
-        self.update_frequency = update_frequency
+        self.update_every = update_every
         self.optimizer = tf.optimizers.Adam(learning_rate=learning_rate)
 
     def act(self, state: np.ndarray, evaluation: bool = False) -> np.int32:
@@ -268,7 +298,7 @@ class DeepQNetwork(tf.keras.Model):
                 grad = tape.gradient(loss, self.q_net.trainable_variables)
                 self.optimizer.apply_gradients(
                     zip(grad, self.q_net.trainable_variables))
-            pbar.set_postfix({'loss': loss})
+            pbar.set_postfix({'loss': loss.numpy()})
 
         return loss
 
@@ -308,9 +338,18 @@ class DeepQNetwork(tf.keras.Model):
                 default None
         vdo_path: the path to which the video is saved, renamed with episode name
         '''
+        # Record until starts updating
+        playouts = 0
+        while len(self.replay) < self.start_updating:
+            print(f'Random Playout {playouts}')
+            iters, total_rwd, _ = self.simulate(env, render=False)
+            print(f'iters: {iters}, tot_rwd: {total_rwd:.3e}')
+            playouts += 1
+
         for episode in range(episodes):
             print(f'Episode: {episode}')
 
+            # No change to epsilon until first update
             self.epsilon = self._epsilon(episode, episodes)
 
             # Simulate Step
@@ -320,16 +359,17 @@ class DeepQNetwork(tf.keras.Model):
             # Video with evaluation
             if vdo_frequency is not None and episode % vdo_frequency == 0:
                 assert vdo_path is not None
-                _, _, _ = self.simulate(env, render=True, evaluation=True, path=vdo_path+f'{episode}.mp4')
+                _, _, _ = self.simulate(
+                    env, render=True, evaluation=True, path=vdo_path+f'{episode}.mp4')
 
-            # Update with regards to frequency when replay buffer is large
-            # enough to not cause over-fitting
-            if len(self.replay) >= self.start_updating and episode % self.update_frequency == 0:
+            # Update when replay buffer is large enough to not cause over-fitting
+            if self.replay.updates_since_sample() >= self.update_every:
                 loss = self._update_weights(self.gamma)
                 print(
-                    f'iters: {iters}, tot_rwd: {total_rwd:.3e}, lss: {loss:.3e}')
+                    f'iters: {iters}, tot_rwd: {total_rwd:.3e}, tot_updates: {self.replay.updates()}, lss: {loss:.3e}')
             else:
-                print(f'iters: {iters}, tot_rwd: {total_rwd:.3e}')
+                print(
+                    f'iters: {iters}, tot_rwd: {total_rwd:.3e}, tot_updates: {self.replay.updates()}')
 
     def save(self, path: str) -> None:
         '''
@@ -365,3 +405,78 @@ class DeepQNetwork(tf.keras.Model):
         Clear the replay buffer.
         '''
         self.replay = ExperienceReplay(self.memory)
+
+    def state_histogram(self,) -> None:
+        '''
+        Show a histogram of distribution of states
+        '''
+        states, _, _, _, _ = zip(*self.replay.buffer)
+        states = np.array(states)
+        rs = states[:, 0]
+        plt.hist(rs, bins=20)
+        plt.title('Distibution of radius in replay buffer')
+        plt.xlabel('Radius $r$')
+        plt.ylabel('Number of samples')
+        plt.show()
+
+    def value_and_policy(self,) -> None:
+        '''
+        Show the current value and policy
+        '''
+        rm, rdtm, tdtm = np.mgrid[.5:1.5:40j, -.5:.5:40j, .5:1.5:40j]
+
+        inputs = np.hstack(
+            (rm.reshape(-1, 1), rdtm.reshape(-1, 1), tdtm.reshape(-1, 1)))
+        # action = tf.reshape(tf.argmax(model.q_net(inputs), axis=-1), (100, 100, 100))
+        # value = tf.reshape(tf.reduce_max(model.q_net(inputs), axis=-1), (100, 100, 100))
+        action = tf.argmax(self.q_net(inputs), axis=-1)
+        value = tf.reduce_max(self.q_net(inputs), axis=-1)
+
+        fig = make_subplots(
+            rows=1, cols=2,
+            specs=[[{'type': 'isosurface'}, {'type': 'isosurface'}]],
+            subplot_titles=('Max Q-Value', 'Action'))
+
+        fig.add_trace(
+            go.Isosurface(
+                x=rm.flatten(),
+                y=rdtm.flatten(),
+                z=tdtm.flatten(),
+                # value=(action - 1).numpy().flatten(),
+                value=value.numpy().flatten(),
+                opacity=.6,
+                isomin=np.min(value),
+                isomax=np.max(value),
+                surface_count=10,  # number of isosurfaces, 2 by default: only min and max
+                colorbar_nticks=5,  # colorbar ticks correspond to isosurface values
+                caps=dict(x_show=False, y_show=False),
+                colorbar_x=.45),
+            row=1, col=1)
+
+        fig.add_trace(
+            go.Isosurface(
+                x=rm.flatten(),
+                y=rdtm.flatten(),
+                z=tdtm.flatten(),
+                value=(action - 1).numpy().flatten(),
+                opacity=.6,
+                isomin=-1,
+                isomax=1,
+                surface_count=10,  # number of isosurfaces, 2 by default: only min and max
+                colorbar_nticks=5,  # colorbar ticks correspond to isosurface values
+                caps=dict(x_show=False, y_show=False)
+            ),
+            row=1, col=2
+        )
+
+        fig.update_layout(
+            width=1200, height=600,
+            scene=dict(
+                xaxis_title='Radius',
+                yaxis_title='Radial Velocity',
+                zaxis_title='Tangential Velocity'),
+            scene2=dict(
+                xaxis_title='Radius',
+                yaxis_title='Radial Velocity',
+                zaxis_title='Tangential Velocity'))
+        fig.show()
