@@ -145,7 +145,7 @@ class RocketAnimation(object):
             [range(i)], self.requested_thrusts_norm[:i])
 
         max_value = np.max([self.thrusts_norm, self.requested_thrusts_norm])
-        self.thrustax.set_xlim(-0.5, i + 0.5)
+        self.thrustax.set_xlim(-0.5, len(self.thrusts_norm) + 0.5)
         self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
 
         self.stater.set_data([range(i)], self.rs[:i])
@@ -154,7 +154,7 @@ class RocketAnimation(object):
         # max_value = np.max([np.abs(self.rs), np.abs(self.thetas)])
         max_value = np.max(np.abs(self.rs))
         min_value = np.min(np.abs(self.rs))
-        self.stateax.set_xlim(-0.5, i + 0.5)
+        self.stateax.set_xlim(-0.5, len(self.rs) + 0.5)
         self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
