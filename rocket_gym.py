@@ -39,7 +39,8 @@ def make(name):
     ```
     '''
     if name == 'RocketCircularization-v0':
-        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=0, dt=0.03,
+        return RocketEnv(max_step=400, simulation_step=3, rmax=5, rmin=0.5, max_thrust=.1,
+                         oob_penalty=0, dt=0.03,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     else:
         raise ValueError(f'No environment {name}')
@@ -83,7 +84,7 @@ def uniform(r_min: float = 0.99, r_max: float = 1.01,
 
 def varied_l(r_min: float = 0.9, r_max: float = 1.1,
              rdot_min: float = -0.5, rdot_max: float = 0.5,
-             dl_min: float = -.1, dl_max: float = .1) \
+             dl_min: float = -.5, dl_max: float = .5) \
         -> Callable[[], List[np.float32]]:
     '''
     Produces a function that generates initial conditions at different angles uniformly with
@@ -151,8 +152,8 @@ def target_l(r_min: float = 0.5, r_max: float = 1.5,
 
 
 def quadratic_penalty(state: np.ndarray, action: np.ndarray, rtarget: float,
-                    velocity_penalty_rate: float, thrust_penalty_rate: float,
-                    G: float = 1, M: float = 1) -> np.float32:
+                      velocity_penalty_rate: float, thrust_penalty_rate: float,
+                      G: float = 1, M: float = 1) -> np.float32:
     '''
     Calculates the Quadratic reward at the current state with the current action. Subject to change.
 
@@ -203,7 +204,8 @@ def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
     Return:
         Reward in this state
     '''
-    value = quadratic_penalty(state, action, rtarget, velocity_penalty_rate, thrust_penalty_rate, G, M)
+    value = quadratic_penalty(state, action, rtarget,
+                              velocity_penalty_rate, thrust_penalty_rate, G, M)
 
     if mode == 'Quadratic':
         return value
