@@ -327,6 +327,7 @@ class DeepQNetwork(tf.keras.Model):
 
     def train(self, env: gym.Env,
               episodes: int, render_frequency: int,
+              model_save_path: Optional[str] = None,
               summary: bool = False,
               vdo_frequency: Optional[int] = None,
               vdo_path: Optional[str] = None) -> None:
@@ -334,6 +335,9 @@ class DeepQNetwork(tf.keras.Model):
         Train the DQN agent for a certain number of episodes
 
         episodes: Number of episodes (simulations) to train the agent
+
+        model_save_path: The folder in which the model is saved every gradient descent
+                step. If None, it is not saved. default None
         render_frequency: Number of episodes before rendering an animation
                 or summary, for visualization.
         summary: Whether to present the record as a summary graph. Note
@@ -376,7 +380,9 @@ class DeepQNetwork(tf.keras.Model):
             # Update when replay buffer is large enough to not cause over-fitting
             if self.replay.updates_since_sample() >= self.update_every:
                 loss = self._update_weights(self.gamma)
-                
+                if model_save_path is not None:
+                    self.save(model_save_path)
+
             if episode % render_frequency == 0:
                 self.state_histogram()
                 # self.value_and_policy()
