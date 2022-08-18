@@ -39,7 +39,7 @@ def make(name):
     ```
     '''
     if name == 'RocketCircularization-v0':
-        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=100, dt=0.03,
+        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1, oob_penalty=0, dt=0.03,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     else:
         raise ValueError(f'No environment {name}')
@@ -81,9 +81,9 @@ def uniform(r_min: float = 0.99, r_max: float = 1.01,
     return func
 
 
-def varied_l(r_min: float = 0.5, r_max: float = 1.5,
-             rdot_min: float = -0.5, rdot_max: float = 0.5,
-             dl_min: float = -1, dl_max: float = .5) \
+def varied_l(r_min: float = 0.9, r_max: float = 1.1,
+             rdot_min: float = -0.1, rdot_max: float = 0.1,
+             dl_min: float = -.1, dl_max: float = .1) \
         -> Callable[[], List[np.float32]]:
     '''
     Produces a function that generates initial conditions at different angles uniformly with
@@ -150,11 +150,11 @@ def target_l(r_min: float = 0.5, r_max: float = 1.5,
     return func
 
 
-def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
+def quadratic_penalty(state: np.ndarray, action: np.ndarray, rtarget: float,
                     velocity_penalty_rate: float, thrust_penalty_rate: float,
                     G: float = 1, M: float = 1) -> np.float32:
     '''
-    Calculates the reward at the current state with the current action. Subject to change.
+    Calculates the Quadratic reward at the current state with the current action. Subject to change.
 
     reward = -(r - rtarget)^2 - velocity_penalty * (v_r^2 + (v_t - v_t,target)^2) - thrust_penalty * |u|^2
 
@@ -180,6 +180,37 @@ def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
     return -((dist - rtarget)**2) \
         - velocity_penalty_rate * (vpolar[0] ** 2 + (vpolar[1] - vtarget)**2) \
         - thrust_penalty_rate * np.linalg.norm(action) ** 2
+
+
+def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
+                    velocity_penalty_rate: float, thrust_penalty_rate: float,
+                    mode: str = 'Quadratic', G: float = 1, M: float = 1) -> np.float32:
+    '''
+    Calculates the reward at the current state with the current action. Subject to change.
+
+    state: the current game state
+    action: actions performed to reach this state
+    rtarget: target radius of the craft
+    velocity_penalty_rate: ratio of velocity penalty to radius penalty
+    thrust_penalty_rate: ratio of thrust penalty to radius penalty
+    mode: Mode of rewards, one of 'Quadratic' or 'Gaussian'
+            Quadratic: -(r - rtarget)^2 - velocity_penalty * (v_r^2 + (v_t - v_t,target)^2) - thrust_penalty * |u|^2
+            Gaussian: exp(-(r - rtarget)^2 - velocity_penalty * (v_r^2 + (v_t - v_t,target)^2) - thrust_penalty * |u|^2)
+
+    G: Gravitational Constant, default 1
+    M: Mass of center object, default 1
+
+    Return:
+        Reward in this state
+    '''
+    value = quadratic_penalty(state, action, rtarget, velocity_penalty_rate, thrust_penalty_rate, G, M)
+
+    if mode == 'Quadratic':
+        return value
+    elif mode == 'Gaussian':
+        return np.exp(value)
+    else:
+        ValueError(f'Invalid reward mode {mode}')
 
 
 def score(state: np.ndarray, rtarget: float,  velocity_penalty_rate: float,
@@ -315,7 +346,7 @@ class RocketEnv(gym.Env):
         rmax: game space radius upper bound, default 2
         rtarget: the target radius the craft is supposed to reach, default 1
         vmax: maximum velocity allowed in the game space (implemented for simulation accuracy and network interpolation), default 10
-        oob_penalty: DEPRECATED, penalty for being out of bounds, default 10
+        oob_penalty: penalty for being out of bounds, default 10
 
         max_thrust: The magnitude of the thrust, scales the action u
         clip_thrust: The way in which the action is clipped, Options: Box, Ball, None, default: Ball
@@ -404,7 +435,8 @@ class RocketEnv(gym.Env):
         Return:
             state, shape (2,),
             reward from this state,
-            if the game is done running, and
+            if the game is done running, 
+            if the agent is out-of-bounds, and
             some more info about the game
         '''
         if self.done:
@@ -441,34 +473,35 @@ class RocketEnv(gym.Env):
             # Update position and location, this can somehow guarantee energy conservation
             # If the craft hits a wall, all normal velocity cancels
             v = v + total_force / self.m * self.dt
-            v = clip_by_norm(v, 0, self.vmax)
+            # v = clip_by_norm(v, 0, self.vmax)
             r = r + v * self.dt
-            v = wall_clip_velocity(v, r, self.rmin, self.rmax)
-            r = clip_by_norm(r, self.rmin, self.rmax)
+            # v = wall_clip_velocity(v, r, self.rmin, self.rmax)
+            # r = clip_by_norm(r, self.rmin, self.rmax)
             # Scored-based reward structure
             reward += reward_function(np.array([*r, *v]), action, self.rtarget, self.velocity_penalty_rate,
-                                      self.thrust_penalty_rate, self.G, self.M)
+                                      self.thrust_penalty_rate, 'Quadratic', self.G, self.M)
             # Differential-score-based Reward structure
             # step_reward, self.prev_score = reward_function(np.array([*r, *v]), action, self.prev_score, self.rtarget, self.velocity_penalty_rate,
             #                                                self.thrust_penalty_rate, self.G, self.M)
             # reward += step_reward * self.dt
 
             # If out-of-bounds, end the game
-            # if np.linalg.norm(r) > self.rmax or np.linalg.norm(r) < self.rmin:
-            #     print('Out-of-Bounds')
-            #     reward -= self.oob_penalty
-            #     self.done = True
-            #     # self.state = self.init_state
-            #     break
-            # else:
-            #     self.state = np.array([*r, *v])
+            if np.linalg.norm(r) > self.rmax or np.linalg.norm(r) < self.rmin:
+                reward -= self.oob_penalty
+                truncated = True
+                # self.state = self.init_state
+            else:
+                self.state = np.array([*r, *v])
+                truncated = False
+            # truncated = False
+
         self.state = np.array([*r, *v])
         self.iters += 1
 
         if self.iters >= self.max_step:
             self.done = True
 
-        return self.state, reward, self.done, info
+        return self.state, reward, self.done, truncated, info
 
     def render(self, *args: Tuple[Any], **kwargs: Dict[str, Any]) -> None:
         '''

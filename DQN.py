@@ -174,6 +174,7 @@ class DeepQNetwork(tf.keras.Model):
         self.memory = memory
         self.replay = ExperienceReplay(memory)
         self.start_updating = start_updating
+        self.num_updates = 0
 
         self.batch_size = batch_size
         self.descent_frequency = descent_frequency
@@ -238,7 +239,10 @@ class DeepQNetwork(tf.keras.Model):
                 env.render()
 
             action = self.act(state, evaluation=evaluation)
-            new_state, reward, done, _ = env.step(action)
+            new_state, reward, done, truncated, _ = env.step(action)
+
+            if truncated:
+                break
 
             if not evaluation:
                 record = Experience(state, action, reward, done, new_state)
@@ -274,17 +278,22 @@ class DeepQNetwork(tf.keras.Model):
             states, actions, rewards, dones, new_states = self.replay.sample(
                 self.batch_size)
             # Update target network if needed
-            if self.use_target and updates % self.target_frequency == 0:
+            if self.use_target and self.num_updates % self.target_frequency == 0:
                 self.q_target.set_weights(self.q_net.get_weights())
+            self.num_updates += 1
 
             with tf.GradientTape() as tape:
                 # Calculate Bellman Loss
-                this_Q = tf.convert_to_tensor(
-                    [q[act] for q, act in zip(self.q_net(states), actions)],
-                    dtype=tf.float32)
+                this_Q = tf.gather(self.q_net(states), actions, batch_dims=1)
                 if self.use_target:
-                    next_Q = tf.reduce_max(
-                        self.q_target(new_states), axis=-1).numpy()
+                    # Double DQN, prevents overestimation
+                    next_actions = tf.argmax(self.q_net(new_states), axis=-1)
+                    next_Q = tf.gather(self.q_target(
+                        new_states), next_actions, batch_dims=1)
+
+                    # OG Target Network
+                    # next_Q = tf.reduce_max(
+                    #     self.q_target(new_states), axis=-1).numpy()
                 else:
                     next_Q = tf.reduce_max(
                         self.q_net(new_states), axis=-1).numpy()
@@ -355,6 +364,8 @@ class DeepQNetwork(tf.keras.Model):
             # Simulate Step
             iters, total_rwd, _ = self.simulate(
                 env, render=(episode % render_frequency == 0), graph=summary)
+            print(
+                f'iters: {iters}, tot_rwd: {total_rwd:.3e}, tot_updates: {self.replay.updates()}')
 
             # Video with evaluation
             if vdo_frequency is not None and episode % vdo_frequency == 0:
@@ -365,11 +376,10 @@ class DeepQNetwork(tf.keras.Model):
             # Update when replay buffer is large enough to not cause over-fitting
             if self.replay.updates_since_sample() >= self.update_every:
                 loss = self._update_weights(self.gamma)
-                print(
-                    f'iters: {iters}, tot_rwd: {total_rwd:.3e}, tot_updates: {self.replay.updates()}, lss: {loss:.3e}')
-            else:
-                print(
-                    f'iters: {iters}, tot_rwd: {total_rwd:.3e}, tot_updates: {self.replay.updates()}')
+                
+            if episode % render_frequency == 0:
+                self.state_histogram()
+                self.value_and_policy()
 
     def save(self, path: str) -> None:
         '''
