@@ -5,7 +5,6 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import gym
 
-import collections
 import pickle
 
 from tqdm import tqdm
@@ -26,93 +25,7 @@ from typing import (
 )
 
 from nn import create_mlp
-
-Experience = collections.namedtuple('Experience',
-                                    field_names=['state', 'action', 'reward', 'done', 'new_state'])
-
-
-class ExperienceReplay:
-    '''
-    Experience Relay, used by DQN.
-
-    Records and samples experiences. Discards Old Experiences.
-
-    Code adapted from
-    https://towardsdatascience.com/deep-q-network-dqn-ii-b6bf911b6b2c
-    '''
-
-    def __init__(self, capacity: int) -> None:
-        '''
-        Initializes a replay buffer
-
-        buffer: Structure that stores the experiences. It discards old
-                elements when the capacity is full
-        updates_since_last_batch: number of data entries since the last
-                time the buffer is sampled
-        '''
-        self.buffer: collections.deque = collections.deque(maxlen=capacity)
-        self.num_updates: int = 0
-        self.updates_since_last_batch: int = 0
-
-    def __len__(self) -> int:
-        '''
-        Number of records in the buffer
-
-        Return: 
-            number of elements in the buffer
-        '''
-        return len(self.buffer)
-
-    def append(self, experience: Experience) -> None:
-        '''
-        Add a new experience record to the buffer
-
-        experience: an experience record
-        '''
-        self.buffer.append(experience)
-        self.updates_since_last_batch += 1
-        self.num_updates += 1
-
-    def updates_since_sample(self,) -> int:
-        '''
-        Returns the number of new data points since the last time the data is sampled
-
-        Return:
-            the number of new data points since the last time the data is sampled
-        '''
-        return self.updates_since_last_batch
-
-    def updates(self,) -> int:
-        '''
-        Returns the total number of buffer updates
-
-        Return:
-            The total number of buffer updates
-        '''
-        return self.num_updates
-
-    def sample(self, batch_size: int) \
-            -> Tuple[np.ndarray, np.ndarray, np.ndarray, List, np.ndarray]:
-        '''
-        Uniformly sample a batch of experiences from the buffer
-
-        batch_size: the size of the batch sampled
-
-        Return:
-            5 lists, representing the state, actions, reward, done, and new
-            state respectively
-        '''
-
-        indices = np.random.choice(len(self.buffer), batch_size,
-                                   replace=False)
-        states, actions, rewards, dones, next_states = zip(
-            *[self.buffer[idx] for idx in indices])
-
-        self.updates_since_last_batch = 0
-        return np.array(states), np.array(actions), \
-            np.array(rewards, dtype=np.float32), \
-            list(dones), np.array(next_states) \
-
+from experience_replay import Experience, ExperienceReplay, PrioritizedExperienceReplay
 
 
 class DeepQNetwork(tf.keras.Model):
