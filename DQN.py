@@ -379,7 +379,7 @@ class DeepQNetwork(tf.keras.Model):
                 
             if episode % render_frequency == 0:
                 self.state_histogram()
-                self.value_and_policy()
+                # self.value_and_policy()
 
     def save(self, path: str) -> None:
         '''
