@@ -28,6 +28,11 @@ def make(name):
     '''
     Initialize Rocket Circularization environment. Contains the environment hyperparameters
 
+    `RocketCircularization-v0` has wall mechanics on. When the craft hits the boundary, it will
+    loose all orthogonal velocity towards the boundary.
+    `RocketCircularization-v1` has wall mechanics off. When the craft hits the boundary, it will
+    pass through boundary and mark the state as truncated.
+
     Usage:
     ```python
     env = make('RocketCircularization-v0')
@@ -39,8 +44,12 @@ def make(name):
     ```
     '''
     if name == 'RocketCircularization-v0':
-        return RocketEnv(max_step=400, simulation_step=3, rmax=5, rmin=0.5, max_thrust=.1,
-                         oob_penalty=0, dt=0.03,
+        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1,
+                         oob_penalty=0, dt=0.03, wall_mechanics=True,
+                         velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
+    if name == 'RocketCircularization-v1':
+        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1,
+                         oob_penalty=0, dt=0.03, wall_mechanics=False,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     else:
         raise ValueError(f'No environment {name}')
@@ -333,9 +342,11 @@ class RocketEnv(gym.Env):
 
     def __init__(self,
                  G: float = 1, M: float = 1, m: float = .01, dt: float = .01,
-                 rmin: float = .1, rmax: float = 2, rtarget: float = 1, vmax: float = 10, oob_penalty: float = 10,
-                 max_thrust: float = .1, clip_thrust: str = 'Ball', velocity_penalty_rate: float = .001, thrust_penalty_rate: float = .0001,
-                 max_step: int = 500, simulation_step: int = 10) -> None:
+                 rmin: float = .1, rmax: float = 2, rtarget: float = 1, vmax: float = 10,
+                 wall_mechanics: bool = True,
+                 oob_penalty: float = 10, max_thrust: float = .1, clip_thrust: str = 'Ball',
+                 velocity_penalty_rate: float = .001, thrust_penalty_rate: float = .0001,
+                 max_step: int = 500, simulation_step: int = 1) -> None:
         '''
         Initializes the environment
 
@@ -349,6 +360,9 @@ class RocketEnv(gym.Env):
         rtarget: the target radius the craft is supposed to reach, default 1
         vmax: maximum velocity allowed in the game space (implemented for simulation accuracy and network interpolation), default 10
         oob_penalty: penalty for being out of bounds, default 10
+        wall_mechanics: whether the boundary acts as a wall.
+                If true, all normal velocity towards the boundary will be canceled upon impact
+                If false, the craft will pass through the wall and truncation will be marked true 
 
         max_thrust: The magnitude of the thrust, scales the action u
         clip_thrust: The way in which the action is clipped, Options: Box, Ball, None, default: Ball
@@ -375,6 +389,7 @@ class RocketEnv(gym.Env):
         self.oob_penalty = oob_penalty
         self.max_thrust = max_thrust
         self.clip_thrust = clip_thrust
+        self.wall_mechanics = wall_mechanics
         self.velocity_penalty_rate = velocity_penalty_rate
         self.thrust_penalty_rate = thrust_penalty_rate
 
@@ -477,10 +492,12 @@ class RocketEnv(gym.Env):
             v = v + total_force / self.m * self.dt
             # v = clip_by_norm(v, 0, self.vmax)
             r = r + v * self.dt
-            # v = wall_clip_velocity(v, r, self.rmin, self.rmax)
-            # r = clip_by_norm(r, self.rmin, self.rmax)
+            if self.wall_mechanics:
+                v = wall_clip_velocity(v, r, self.rmin, self.rmax)
+                r = clip_by_norm(r, self.rmin, self.rmax)
             # Scored-based reward structure
-            reward += reward_function(np.array([*r, *v]), action, self.rtarget, self.velocity_penalty_rate,
+            reward += reward_function(np.array([*r, *v]), action,
+                                      self.rtarget, self.velocity_penalty_rate,
                                       self.thrust_penalty_rate, 'Quadratic', self.G, self.M)
             # Differential-score-based Reward structure
             # step_reward, self.prev_score = reward_function(np.array([*r, *v]), action, self.prev_score, self.rtarget, self.velocity_penalty_rate,
@@ -488,14 +505,18 @@ class RocketEnv(gym.Env):
             # reward += step_reward * self.dt
 
             # If out-of-bounds, end the game
-            if np.linalg.norm(r) > self.rmax or np.linalg.norm(r) < self.rmin:
-                reward -= self.oob_penalty
-                truncated = True
-                # self.state = self.init_state
-            else:
-                self.state = np.array([*r, *v])
+            if self.wall_mechanics:
+                # The game will not be truncated when wall-mechanics are disabled
                 truncated = False
-            # truncated = False
+            else:
+                # This condition may be changed into a controllability condition
+                if np.linalg.norm(r) > self.rmax or np.linalg.norm(r) < self.rmin:
+                    reward -= self.oob_penalty
+                    truncated = True
+                    # self.state = self.init_state
+                else:
+                    self.state = np.array([*r, *v])
+                    truncated = False
 
         self.state = np.array([*r, *v])
         self.iters += 1

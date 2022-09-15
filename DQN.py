@@ -39,7 +39,8 @@ class DeepQNetwork(tf.keras.Model):
                  memory: int, start_updating: int,
                  batch_size: int, learning_rate: float,
                  descent_frequency: int, update_every: int,
-                 use_target: bool, target_frequency: int) -> None:
+                 use_target: bool, target_frequency: int,
+                 truncate: bool) -> None:
         '''
         Initializes a DQN agent
 
@@ -66,8 +67,12 @@ class DeepQNetwork(tf.keras.Model):
         descent_frequency: number of gradient descents during each update
         use_target: if DQN use target networks while updating. When false, 
                 would have the same effect as target_frequency=1
-        target_frequency: number of gradient descents between each update 
+        update_every: number of new experiences between each gradient descent
+        target_frequency: number of gradient debatches between each update 
                 to target network
+
+        truncate: whether to end a simulation when the environment returns
+                truncation (usually set to True)
         '''
         super().__init__()
 
@@ -93,6 +98,8 @@ class DeepQNetwork(tf.keras.Model):
         self.descent_frequency = descent_frequency
         self.update_every = update_every
         self.optimizer = tf.optimizers.Adam(learning_rate=learning_rate)
+
+        self.truncate = truncate
 
     def act(self, state: np.ndarray, evaluation: bool = False) -> np.int32:
         '''
@@ -154,7 +161,7 @@ class DeepQNetwork(tf.keras.Model):
             action = self.act(state, evaluation=evaluation)
             new_state, reward, done, truncated, _ = env.step(action)
 
-            if truncated:
+            if self.truncate and truncated:
                 break
 
             if not evaluation:
@@ -376,7 +383,7 @@ class DeepQNetwork(tf.keras.Model):
                 opacity=.6,
                 isomin=np.min(value),
                 isomax=np.max(value),
-                surface_count=10,  # number of isosurfaces, 2 by default: only min and max
+                surface_count=50,  # number of isosurfaces, 2 by default: only min and max
                 colorbar_nticks=5,  # colorbar ticks correspond to isosurface values
                 caps=dict(x_show=False, y_show=False),
                 colorbar_x=.45),
