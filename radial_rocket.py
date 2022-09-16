@@ -108,7 +108,7 @@ class RadialBalance(gym.Env):
 
         return self.state, reward, self.done, False, dict()
 
-    def render(self, _):
+    def render(self):
         self.record.append(self.state)
         self.actions.append(self.last_action[0])
 
