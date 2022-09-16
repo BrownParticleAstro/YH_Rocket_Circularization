@@ -44,7 +44,9 @@ def make(name):
     ```
     '''
     if name == 'RocketCircularization-v0':
-        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1,
+        init_func = varied_l(r_min=0.5, r_max=1.5)
+        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5,
+                         init_func=init_func, max_thrust=.1,
                          oob_penalty=0, dt=0.03, wall_mechanics=True,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     if name == 'RocketCircularization-v1':
@@ -343,7 +345,7 @@ class RocketEnv(gym.Env):
     def __init__(self,
                  G: float = 1, M: float = 1, m: float = .01, dt: float = .01,
                  rmin: float = .1, rmax: float = 2, rtarget: float = 1, vmax: float = 10,
-                 wall_mechanics: bool = True,
+                 init_func: Callable[[], np.ndarray] = varied_l(), wall_mechanics: bool = True,
                  oob_penalty: float = 10, max_thrust: float = .1, clip_thrust: str = 'Ball',
                  velocity_penalty_rate: float = .001, thrust_penalty_rate: float = .0001,
                  max_step: int = 500, simulation_step: int = 1) -> None:
@@ -360,6 +362,7 @@ class RocketEnv(gym.Env):
         rtarget: the target radius the craft is supposed to reach, default 1
         vmax: maximum velocity allowed in the game space (implemented for simulation accuracy and network interpolation), default 10
         oob_penalty: penalty for being out of bounds, default 10
+        init_func: function that returns an initial condition, default varied_l()
         wall_mechanics: whether the boundary acts as a wall.
                 If true, all normal velocity towards the boundary will be canceled upon impact
                 If false, the craft will pass through the wall and truncation will be marked true 
@@ -389,6 +392,7 @@ class RocketEnv(gym.Env):
         self.oob_penalty = oob_penalty
         self.max_thrust = max_thrust
         self.clip_thrust = clip_thrust
+        self.init_func = init_func
         self.wall_mechanics = wall_mechanics
         self.velocity_penalty_rate = velocity_penalty_rate
         self.thrust_penalty_rate = thrust_penalty_rate
@@ -421,7 +425,7 @@ class RocketEnv(gym.Env):
         if options is not None and 'init_func' in options:
             init_func = options['init_func']
         else:
-            init_func = varied_l()
+            init_func = self.init_func
 
         self.state = np.array(init_func())
         self.init_state = self.state
