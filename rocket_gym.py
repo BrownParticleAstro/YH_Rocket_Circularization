@@ -50,7 +50,7 @@ def make(name):
                          oob_penalty=0, dt=0.03, wall_mechanics=True,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     if name == 'RocketCircularization-v1':
-        return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5, max_thrust=.1,
+        return RocketEnv(max_step=400, simulation_step=3, rmax=5, rmin=0.5, max_thrust=.1,
                          oob_penalty=0, dt=0.03, wall_mechanics=False,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     else:
