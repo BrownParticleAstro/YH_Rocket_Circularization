@@ -74,7 +74,7 @@ class RadialBalance(gym.Env):
 
         return pe + ke
 
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         r, rdt = self.state
         thrust = action[0] * self.max_thrust
 
@@ -106,7 +106,7 @@ class RadialBalance(gym.Env):
         if self.iters > self.max_iters:
             self.done = True
 
-        return self.state, reward, self.done, dict()
+        return self.state, reward, self.done, False, dict()
 
     def render(self, _):
         self.record.append(self.state)

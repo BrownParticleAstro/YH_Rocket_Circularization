@@ -68,7 +68,7 @@ class DeepQNetwork(tf.keras.Model):
         use_target: if DQN use target networks while updating. When false, 
                 would have the same effect as target_frequency=1
         update_every: number of new experiences between each gradient descent
-        target_frequency: number of gradient debatches between each update 
+        target_frequency: number of experiences used between each update 
                 to target network
 
         truncate: whether to end a simulation when the environment returns
