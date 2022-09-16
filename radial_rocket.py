@@ -112,7 +112,7 @@ class RadialBalance(gym.Env):
         self.record.append(self.state)
         self.actions.append(self.last_action[0])
 
-    def show(self, summary):
+    def show(self, summary, _):
         record = np.array(self.record)
         time = np.arange(0, len(record), dtype=np.float64)
         time *= self.dt * self.simulation_steps

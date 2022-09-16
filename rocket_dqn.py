@@ -32,7 +32,7 @@ def main():
         model.load('./bounded_3/')
         # model.value_and_policy()
         # model.state_histogram()
-        model.simulate(env, render=True, evaluatigon=True)
+        model.simulate(env, render=True, evaluation=True)
         # start = timer()
         # for _ in tqdm(range(100)):
         #     model.simulate(env, render=False, evaluation=True)
