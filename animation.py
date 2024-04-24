@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib
 # matplotlib.use('TkAgg')
-plt.style.use('seaborn-pastel')
+plt.style.use('bmh')
 
 
 class RocketAnimation(object):

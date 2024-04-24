@@ -444,7 +444,7 @@ class RocketEnv(gym.Env):
         if return_info:
             return self.state, dict()
         else:
-            return self.state
+            return self.state, dict()
 
     def step(self, action: np.ndarray) -> Union[Tuple[np.ndarray, float, bool, bool, dict],
                                                 Tuple[np.ndarray, float, bool, dict]]:
@@ -517,6 +517,7 @@ class RocketEnv(gym.Env):
                 if np.linalg.norm(r) > self.rmax or np.linalg.norm(r) < self.rmin:
                     reward -= self.oob_penalty
                     truncated = True
+                    self.done = True
                     # self.state = self.init_state
                 else:
                     self.state = np.array([*r, *v])
@@ -528,7 +529,7 @@ class RocketEnv(gym.Env):
         if self.iters >= self.max_step:
             self.done = True
 
-        return self.state, reward, self.done, truncated, info
+        return self.state, 1, self.done, truncated, info
 
     def render(self, *args: Tuple[Any], **kwargs: Dict[str, Any]) -> None:
         '''
