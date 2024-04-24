@@ -3,6 +3,7 @@ import rocket_gym
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import Any, List, Sequence, Tuple
+from radial_rocket import RadialBalance, DiscretiseAction
 import torch as th
 import stable_baselines3
 from stable_baselines3 import PPO, A2C, DQN, SAC
@@ -12,11 +13,7 @@ import tensorflow as tf
 
 # Initialize and wrap the environment
 env_name = 'RocketCircularization-v1'
-env = rocket_gym.make(env_name)
-env.max_step = 10_000  # maximum episode length
-env = rocket_gym.PolarizeAction(env)
-env = rocket_gym.RadialThrust(env)
-env = rocket_gym.PolarizeObservation(env)
+env = DiscretiseAction(RadialBalance())
 
 # Examine the observation space after wrapping
 env.observation_space = gym.spaces.Box(low=-10, high=10, shape=(3,), dtype=np.float32)
@@ -32,7 +29,7 @@ model = PPO("MlpPolicy", env, batch_size=1024, gamma=0.995, policy_kwargs=policy
 
 # Check if the model starts learning without error
 try:
-    model.learn(total_timesteps=3_141_592, progress_bar=True)
+    model.learn(total_timesteps=3_500_000, progress_bar=True)
     print("Model training started successfully!")
 except Exception as e:
     print("Error during training:", e)

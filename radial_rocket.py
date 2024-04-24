@@ -33,6 +33,7 @@ class RadialBalance(gym.Env):
         self.max_iters = 200
         self.dt = 0.05
         self.max_thrust = 0.1
+        self.seed = 42
 
         self.end_rmin, self.end_rmax = 0.98, 1.02
         self.end_vmin, self.end_vmax = -.03, .03
@@ -61,6 +62,7 @@ class RadialBalance(gym.Env):
         self.last_action = [0]
 
         self.end_counter = 0
+        print(self.state)
 
         return self.state
 
