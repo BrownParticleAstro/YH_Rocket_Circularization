@@ -502,7 +502,7 @@ class RocketEnv(gym.Env):
                 (np.power(np.linalg.norm(r), 3)) * r  # F = - GMm/|r|^3 * r
             # print(f"gravitational_force: {gravitational_force}")
             thrust_force = action * self.m * self.max_thrust
-            print(f"thrust_force: {thrust_force}")
+            # print(f"thrust_force: {thrust_force}")
             total_force = gravitational_force + thrust_force
             # print(f"total_force: {total_force}")
             # Update position and location, this can somehow guarantee energy conservation
