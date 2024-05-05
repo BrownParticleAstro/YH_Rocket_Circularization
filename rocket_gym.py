@@ -499,12 +499,17 @@ class RocketEnv(gym.Env):
             # Calculate total force
             gravitational_force = - (self.G * self.M * self.m) / \
                 (np.power(np.linalg.norm(r), 3)) * r  # F = - GMm/|r|^3 * r
+            print(f"gravitational_force: {gravitational_force}")
             thrust_force = action * self.m * self.max_thrust
+            print(f"thrust_force: {thrust_force}")
             total_force = gravitational_force + thrust_force
+            print(f"total_force: {total_force}")
             # Update position and location, this can somehow guarantee energy conservation
             # If the craft hits a wall, all normal velocity cancels
+            print(f"dv: {total_force / self.m * self.dt}")
             v = v + total_force / self.m * self.dt
             # v = clip_by_norm(v, 0, self.vmax)
+            print(f"dr: {v * self.dt}")
             r = r + v * self.dt
             if self.wall_mechanics:
                 v = wall_clip_velocity(v, r, self.rmin, self.rmax)
@@ -534,6 +539,7 @@ class RocketEnv(gym.Env):
                     truncated = False
 
         print(f"diff = {self.state - np.array([*r, *v])}")
+        print("========")
         self.state = np.array([*r, *v])
         self.iters += 1
 
