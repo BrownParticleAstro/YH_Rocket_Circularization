@@ -351,7 +351,7 @@ class RocketEnv(gym.Env):
                  max_step: int = 500, simulation_step: int = 1,
                  init_r: Optional[float] = None, init_theta: Optional[float] = None,
                  init_rdot: Optional[float] = None, init_thetadot: Optional[float] = None) -> None:
-        '''
+        ''' 
         Initializes the environment
 
         G: Gravitational Constant, default 1
@@ -533,6 +533,7 @@ class RocketEnv(gym.Env):
                     self.state = np.array([*r, *v])
                     truncated = False
 
+        print(f"diff = {self.state - np.array([*r, *v])}")
         self.state = np.array([*r, *v])
         self.iters += 1
 
