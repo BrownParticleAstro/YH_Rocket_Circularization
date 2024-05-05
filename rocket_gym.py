@@ -497,6 +497,7 @@ class RocketEnv(gym.Env):
         # Simulate for a number of steps
         for _ in range(self.simulation_step):
             # Calculate total force
+            print(f"r: {r}")
             gravitational_force = - (self.G * self.M * self.m) / \
                 (np.power(np.linalg.norm(r), 3)) * r  # F = - GMm/|r|^3 * r
             print(f"gravitational_force: {gravitational_force}")
