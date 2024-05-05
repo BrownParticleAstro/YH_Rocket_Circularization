@@ -536,11 +536,11 @@ class RocketEnv(gym.Env):
                     self.done = True
                     # self.state = self.init_state
                 else:
+                    print(f"diff = {self.state - np.array([*r, *v])}")
+                    print("========")
                     self.state = np.array([*r, *v])
                     truncated = False
 
-        print(f"diff = {self.state - np.array([*r, *v])}")
-        print("========")
         self.state = np.array([*r, *v])
         self.iters += 1
 
