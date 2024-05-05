@@ -47,11 +47,11 @@ def make(name):
         init_func = varied_l(r_min=0.5, r_max=1.5)
         return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5,
                          init_func=init_func, max_thrust=.1,
-                         oob_penalty=0, dt=0.03, wall_mechanics=True,
+                         oob_penalty=0, dt=0.01, wall_mechanics=True,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     if name == 'RocketCircularization-v1':
         return RocketEnv(max_step=400, simulation_step=3, rmax=5, rmin=0.5, max_thrust=.1,
-                         oob_penalty=0, dt=0.03, wall_mechanics=False,
+                         oob_penalty=0, dt=0.01, wall_mechanics=False,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     else:
         raise ValueError(f'No environment {name}')
@@ -343,12 +343,14 @@ class RocketEnv(gym.Env):
     '''
 
     def __init__(self,
-                 G: float = 1, M: float = 1, m: float = .01, dt: float = .01,
+                 G: float = (2 * np.pi)**2, M: float = 1, m: float = .01, dt: float = .01,
                  rmin: float = .1, rmax: float = 2, rtarget: float = 1, vmax: float = 10,
                  init_func: Callable[[], np.ndarray] = varied_l(), wall_mechanics: bool = True,
                  oob_penalty: float = 10, max_thrust: float = .1, clip_thrust: str = 'Ball',
                  velocity_penalty_rate: float = .001, thrust_penalty_rate: float = .0001,
-                 max_step: int = 500, simulation_step: int = 1) -> None:
+                 max_step: int = 500, simulation_step: int = 1,
+                 init_r: Optional[float] = None, init_theta: Optional[float] = None,
+                 init_rdot: Optional[float] = None, init_thetadot: Optional[float] = None) -> None:
         '''
         Initializes the environment
 
@@ -400,6 +402,11 @@ class RocketEnv(gym.Env):
         self.max_step, self.simulation_step = max_step, simulation_step
         self.iters = 0
 
+        self.init_r = init_r
+        self.init_theta = init_theta
+        self.init_rdot = init_rdot
+        self.init_thetadot = init_thetadot
+
         # Animation object
         lim = rmax * 1.1
         self.animation = RocketAnimation(r_min=rmin, r_target=rtarget, r_max=rmax, xlim=(-lim, lim), ylim=(-lim, lim),
@@ -422,12 +429,15 @@ class RocketEnv(gym.Env):
         '''
         # super().reset(seed=seed)
 
-        if options is not None and 'init_func' in options:
-            init_func = options['init_func']
+        if self.init_r is None or self.init_theta is None or self.init_rdot is None or self.init_thetadot is None:
+            self.state = np.array(self.init_func())
         else:
-            init_func = self.init_func
-
-        self.state = np.array(init_func())
+            r, theta, rdot, thetadot = self.init_r, self.init_theta, self.init_rdot, self.init_thetadot
+            pos = [r * np.cos(theta), r * np.sin(theta)]
+            vel = [rdot * np.cos(theta) - r * thetadot * np.sin(theta),
+                   rdot * np.sin(theta) + r * thetadot * np.cos(theta)]
+            self.state = np.array([*pos, *vel])
+        
         self.init_state = self.state
         self.iters = 0
         self.prev_score = - \
