@@ -456,7 +456,7 @@ class RocketEnv(gym.Env):
         else:
             return self.state, dict()
 
-    def step(self, action: np.ndarray) -> Union[Tuple[np.ndarray, float, bool, bool, dict],
+    def step(self, action: np.ndarray, do_print: False) -> Union[Tuple[np.ndarray, float, bool, bool, dict],
                                                 Tuple[np.ndarray, float, bool, dict]]:
         '''
         Accept action and modify the states accordingly. 
@@ -524,6 +524,14 @@ class RocketEnv(gym.Env):
             #                                                self.thrust_penalty_rate, self.G, self.M)
             # reward += step_reward * self.dt
 
+            if do_print:
+                print(f"gravitational_force={gravitational_force}")
+                print(f"thrust_force={thrust_force}")
+                print(f"total_force={total_force}")
+                print(f"dv={total_force / self.m * self.dt}")
+                print(f"dr={v * self.dt}")
+                print(f"new state={np.array([*r, *v])}")
+
             # If out-of-bounds, end the game
             if self.wall_mechanics:
                 # The game will not be truncated when wall-mechanics are disabled
@@ -535,7 +543,7 @@ class RocketEnv(gym.Env):
                     truncated = True
                     self.done = True
                     # self.state = self.init_state
-                else:
+                else:                        
                     # print(f"diff = {self.state - np.array([*r, *v])}")
                     # print("========")
                     self.state = np.array([*r, *v])
