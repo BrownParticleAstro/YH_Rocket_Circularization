@@ -756,6 +756,7 @@ class PolarizeObservation(gym.ObservationWrapper):
             in that order.
         '''
         print(obs)
+        print(obs[0])
         r, v = obs[0][:2], obs[0][2:]
         print(r)
         dist = np.linalg.norm(r)
