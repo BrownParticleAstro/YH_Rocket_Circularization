@@ -193,7 +193,18 @@ def quadratic_penalty(state: np.ndarray, action: np.ndarray, rtarget: float,
         - velocity_penalty_rate * (vpolar[0] ** 2 + (vpolar[1] - vtarget)**2) \
         - thrust_penalty_rate * np.linalg.norm(action) ** 2
 
-
+def basic_reward(state: np.ndarray, action: np.ndarray, rtarget: float,
+                      velocity_penalty_rate: float, thrust_penalty_rate: float,
+                      G: float = 1, M: float = 1) -> np.float32:
+    vtarget = np.sqrt(G * M / rtarget)
+    r, v = state[:2], state[2:]
+    dist = np.linalg.norm(r)
+    if abs(dist - rtarget)<0.1:
+        return 1
+    elif abs(dist -rtarget)<0.5:
+        return 0.5
+    else:
+        return 0
 def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
                     velocity_penalty_rate: float, thrust_penalty_rate: float,
                     mode: str = 'Quadratic', G: float = 1, M: float = 1) -> np.float32:
@@ -215,7 +226,7 @@ def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
     Return:
         Reward in this state
     '''
-    value = quadratic_penalty(state, action, rtarget,
+    value = basic_reward(state, action, rtarget,
                               velocity_penalty_rate, thrust_penalty_rate, G, M)
 
     if mode == 'Quadratic':
