@@ -161,7 +161,7 @@ class RocketAnimation(object):
             self.thrustr, self.requested_thrustr, \
             self.stater, self.statetheta
 
-    def show_animation(self,):
+    def show_animation(self, step=1):
         '''
         Shows the animation in a pop-up window
         '''
@@ -171,11 +171,12 @@ class RocketAnimation(object):
         self.ax = self.fig.add_subplot(121)
         self.thrustax = self.fig.add_subplot(222)
         self.stateax = self.fig.add_subplot(224)
-        anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
-            self.states), blit=False, interval=10, repeat=False)
+        frames_to_show = range(0, len(self.states), step)
+        anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
+                            frames=frames_to_show, blit=True, interval=100, repeat=False)
         plt.show()
 
-    def save_animation(self, name):
+    def save_animation(self, name, step=1):
         '''
         Save the animation in a file
 
@@ -188,8 +189,9 @@ class RocketAnimation(object):
         self.ax = self.fig.add_subplot(121)
         self.thrustax = self.fig.add_subplot(222)
         self.stateax = self.fig.add_subplot(224)
-        anim = FuncAnimation(self.fig, self._animate, init_func=self._init, frames=len(
-            self.states), blit=True, interval=100, repeat=False)
+        frames_to_show = range(0, len(self.states), step)
+        anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
+                             frames=frames_to_show, blit=True, interval=100, repeat=False)
         anim.save(name, dpi=80)
 
     def _plot_thrust_magnitude(self, ax):

@@ -567,7 +567,7 @@ class RocketEnv(gym.Env):
         self.animation.render(self.state, self.last_action, self.last_action,
                               self.rmin, self.rtarget, self.rmax)
 
-    def show(self, path: Optional[str] = None, summary: bool = False) -> None:
+    def show(self, path: Optional[str] = None, summary: bool = False, step: int = 10) -> None:
         '''
         Show the saved frames of the animation or produce a summary
 
@@ -583,9 +583,9 @@ class RocketEnv(gym.Env):
                 self.animation.summary_plot()
                 plt.show()
             else:
-                self.animation.show_animation()
+                self.animation.show_animation(step=step)
         else:
-            self.animation.save_animation(path)
+            self.animation.save_animation(path, step=step)
 
 
 class PolarizeAction(gym.ActionWrapper):
