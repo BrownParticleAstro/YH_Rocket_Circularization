@@ -755,10 +755,10 @@ class PolarizeObservation(gym.ObservationWrapper):
             numpy array with shape (3,) with radius, radial velocity, and tangential velocity,
             in that order.
         '''
-        print(obs)
-        print(obs[0])
-        r, v = obs[0][:2], obs[0][2:]
-        print(r)
+        if len(obs)==2:
+            r, v = obs[0][:2], obs[0][2:]
+        else: 
+            r, v = obs[:2], obs[2:]
         dist = np.linalg.norm(r)
         rhat = r / dist
         rotation_matrix = np.array([[rhat[0], rhat[1]], [-rhat[1], rhat[0]]])
