@@ -525,7 +525,7 @@ class RocketEnv(gym.Env):
             # reward += step_reward * self.dt
 
             if do_print:
-                print(f"gravitational_force={gravitational_force}")
+                print(f"gravitational_force={round(gravitational_force, 10)}")
                 print(f"thrust_force={thrust_force}")
                 print(f"total_force={total_force}")
                 print(f"dv={total_force / self.m * self.dt}")
