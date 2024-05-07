@@ -755,6 +755,7 @@ class PolarizeObservation(gym.ObservationWrapper):
             numpy array with shape (3,) with radius, radial velocity, and tangential velocity,
             in that order.
         '''
+        print(obs)
         r, v = obs[:2], obs[2:]
         print(r)
         dist = np.linalg.norm(r)
