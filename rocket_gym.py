@@ -456,7 +456,7 @@ class RocketEnv(gym.Env):
         else:
             return self.state, dict()
 
-    def step(self, action: np.ndarray, do_print = False) -> Union[Tuple[np.ndarray, float, bool, bool, dict],
+    def step(self, action: np.ndarray, do_print = True) -> Union[Tuple[np.ndarray, float, bool, bool, dict],
                                                 Tuple[np.ndarray, float, bool, dict]]:
         '''
         Accept action and modify the states accordingly. 
