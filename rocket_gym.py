@@ -228,7 +228,7 @@ def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
     '''
     value = basic_reward(state, action, rtarget,
                               velocity_penalty_rate, thrust_penalty_rate, G, M)
-
+    return value
     if mode == 'Quadratic':
         return value
     elif mode == 'Gaussian':
