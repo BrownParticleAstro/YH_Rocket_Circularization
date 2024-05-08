@@ -205,7 +205,7 @@ def basic_reward(state: np.ndarray, action: np.ndarray, rtarget: float,
         return 0.5
     else:
         return 0
-def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
+def quadratic_penalty(state: np.ndarray, action: np.ndarray, rtarget: float,
                     velocity_penalty_rate: float, thrust_penalty_rate: float,
                     mode: str = 'Quadratic', G: float = 1, M: float = 1) -> np.float32:
     '''
