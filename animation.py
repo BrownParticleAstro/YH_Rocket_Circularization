@@ -79,11 +79,14 @@ class RocketAnimation(object):
         self.max_circle, = self.ax.plot(
             *self._circle(self.r_max), '--', label='Maximum Radius')
         
-        self.energy_line, = self.ax.plot([], [], label='Potential Energy')  # Line for potential energy
+        self.energy_line, = self.energy_ax.plot([], [], label='Potential Energy')  # Line for potential energy
 
         self.ax.grid(True)
         self.ax.legend(loc='upper left')
-        
+
+        self.energy_ax.grid(True)
+        self.energy_ax.legend(loc='upper right')
+
         # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
         # self.thrusttheta, = self.thrustax.plot(
         #     [], [], label='thrust $\\theta$')
@@ -181,6 +184,7 @@ class RocketAnimation(object):
         self.fig = plt.figure(figsize=(10, 5), num=1,
                               clear=True, tight_layout=True)
         self.ax = self.fig.add_subplot(121)
+        self.energy_ax = self.fig.add_subplot(122)  # Define the subplot for potential energy
         self.thrustax = self.fig.add_subplot(222)
         self.stateax = self.fig.add_subplot(224)
         frames_to_show = range(0, len(self.states), step)
