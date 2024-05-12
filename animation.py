@@ -208,6 +208,7 @@ class RocketAnimation(object):
         self.fig = plt.figure(figsize=(10, 5), num=1,
                               clear=True, tight_layout=True)
         self.ax = self.fig.add_subplot(121)
+        self.energy_ax = self.fig.add_subplot(122)  # Define the subplot for potential energy
         self.thrustax = self.fig.add_subplot(222)
         self.stateax = self.fig.add_subplot(224)
         frames_to_show = range(0, len(self.states), step)
