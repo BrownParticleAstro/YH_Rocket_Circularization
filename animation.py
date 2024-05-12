@@ -57,36 +57,80 @@ class RocketAnimation(object):
         x, y = radius * np.cos(theta), radius * np.sin(theta)
         return x, y
 
-    def _init(self):
+    def _init(self,):
         '''
         Function used for generating the animation
         The first step in the animation
+
+        Returns:
+            line to update
         '''
-        # Setup the arrow for the thrust vector
-        self.arrow = Arrow(posA=(0, 0), posB=(0, 0), arrowstyle='simple', mutation_scale=10, color='r')
-        self.ax.add_patch(self.arrow)
 
-        # Plotting initial points
-        self.line, = self.ax.plot([], [], marker='o', markersize=self.marker_size, alpha=self.circle_alpha)
-
-        # Initial plotting of circles with their labels for the legend
-        self.min_circle, = self.ax.plot(*self._circle(self.r_min), '--', label='Minimum Radius')
-        self.target_circle, = self.ax.plot(*self._circle(self.r_target), '--', label='Target Orbit')
-        self.max_circle, = self.ax.plot(*self._circle(self.r_max), '--', label='Maximum Radius')
-
-        # Ensure we only create the legend once and only if the items have been plotted
-        if not hasattr(self, 'legend_created'):
+        if not hasattr(self, 'initialized_legends'):
             self.ax.legend(loc='upper left')
-            self.legend_created = True
+            self.thrustax.legend(loc='upper right')
+            self.stateax.legend(loc='upper right')
+            self.initialized_legends = True
 
-        return (self.line, self.min_circle, self.target_circle, self.max_circle, self.arrow)
+        self.t_vec_len = self.t_vec_len
+        self.arrow = Arrow(posA=(0, 0), posB=(
+            0, 0), arrowstyle='simple', mutation_scale=10, color='r')
+        self.ax.add_patch(self.arrow)
+        self.line, = self.ax.plot(
+            [], [], marker='o', markersize=self.marker_size, alpha=self.circle_alpha)
+
+        self.min_circle, = self.ax.plot(
+            *self._circle(self.r_min), '--', label='Minimum Radius')
+        self.target_circle, = self.ax.plot(
+            *self._circle(self.r_target), '--', label='Target Orbit')
+        self.max_circle, = self.ax.plot(
+            *self._circle(self.r_max), '--', label='Maximum Radius')
+
+        self.ax.grid(True)
+        if not hasattr(self, 'ax_legend_created'):
+            self.ax.legend(loc='upper left')
+            self.ax_legend_created = True
+
+        # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
+        # self.thrusttheta, = self.thrustax.plot(
+        #     [], [], label='thrust $\\theta$')
+        # self.requested_thrustr, = self.thrustax.plot(
+        #     [], [], label='requested thrust r')
+        # self.requested_thrusttheta, = self.thrustax.plot(
+        #     [], [], label='requested thrust $\\theta$')
+        self.thrustr, = self.thrustax.plot([], [], label='thrust magnitude')
+        self.requested_thrustr, = self.thrustax.plot(
+            [], [], label='requested thrust magnitude')
+
+        self.thrustax.grid(True)
+        if not hasattr(self, 'thrustax_legend_created'):
+            self.ax.legend(loc='upper right')
+            self.thrustax_legend_created = True
+
+        self.energy_line, = self.stateax.plot([], [], label='Potential Energy')  # Line for potential energy
+        self.stater, = self.stateax.plot([], [], label='state r')
+        self.statetheta, = self.stateax.plot([], [], label='state $\\theta$')
+
+        self.stateax.grid(True)
+        if not hasattr(self, 'stateax_legend_created'):
+            self.ax.legend(loc='upper right')
+            self.stateax_legend_created = True
+
+        return self.line, self.min_circle, self.target_circle, self.max_circle, \
+            self.thrustr, self.requested_thrustr,\
+            self.stater, self.statetheta, self.energy_line
 
     def _animate(self, i):
         '''
         Function used for generating the animation
         The update function run each time the animation advances
+
+        Parameters:
+            i: the number of frames of the animation
+
+        Returns:
+            line to update
         '''
-        # Here, set data for all the elements including circles each frame
         st = self.states[i]
         vec = self.thrusts[i] * self.t_vec_len * (self.xlim[1] - self.xlim[0])
 
@@ -97,8 +141,41 @@ class RocketAnimation(object):
 
         self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
         self.fig.suptitle(f'Iteration: {i}')
+        # self.arrow = self.ax.arrow(st[0], st[1], vec[0], vec[1])
 
-        return self.line, self.min_circle, self.target_circle, self.max_circle, self.arrow
+        # self.thrustr.set_data([range(i)], [thrust[0]
+        #                       for thrust in self.thrusts_polar[:i]])
+        # self.thrusttheta.set_data([range(i)], [thrust[1]
+        #                                        for thrust in self.thrusts_polar[:i]])
+        # self.requested_thrustr.set_data(
+        #     [range(i)], [thrust[0] for thrust in self.requested_thrusts_polar[:i]])
+        # self.requested_thrusttheta.set_data(
+        #     [range(i)], [thrust[1] for thrust in self.requested_thrusts_polar[:i]])
+
+        # max_value = np.max([np.abs(self.thrusts_polar), np.abs(self.requested_thrusts_polar)])
+        # self.thrustax.set_xlim(-0.5, i + 0.5)
+        # self.thrustax.set_ylim(-max_value*1.1, max_value*1.1)
+
+        self.thrustr.set_data([range(i)], self.thrusts_norm[:i])
+        self.requested_thrustr.set_data(
+            [range(i)], self.requested_thrusts_norm[:i])
+
+        max_value = np.max([self.thrusts_norm, self.requested_thrusts_norm])
+        self.thrustax.set_xlim(-0.5, len(self.thrusts_norm) + 0.5)
+        self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
+
+        self.stater.set_data([range(i)], self.rs[:i])
+        # self.statetheta.set_data([range(i)], self.thetas[:i])
+
+        # max_value = np.max([np.abs(self.rs), np.abs(self.thetas)])
+        max_value = np.max(np.abs(self.rs))
+        min_value = np.min(np.abs(self.rs))
+        self.stateax.set_xlim(-0.5, len(self.rs) + 0.5)
+        self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
+
+        return self.line, self.min_circle, self.target_circle, self.max_circle,\
+            self.thrustr, self.requested_thrustr, \
+            self.stater, self.statetheta
 
     def show_animation(self, step=1):
         '''
