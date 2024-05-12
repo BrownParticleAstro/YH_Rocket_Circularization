@@ -42,6 +42,10 @@ class RocketAnimation(object):
         self.xlim = xlim
         self.ylim = ylim
 
+        self.fig = plt.figure(figsize=(10, 5), num=1, clear=True, tight_layout=True)
+        self.ax = self.fig.add_subplot(121)
+        self.energy_ax = self.fig.add_subplot(122)
+
     def _circle(self, radius):
         '''
         Create data for a circle with a certain radius
