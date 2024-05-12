@@ -248,7 +248,7 @@ class RocketAnimation(object):
         ax.set_title('Radius')
         ax.plot(self.rs, label='radius')
         ax.grid(True)
-        ax.legend()
+        #ax.legend()
 
     def _plot_velocities(self, ax):
         ax.set_title('Velocities')
@@ -256,7 +256,7 @@ class RocketAnimation(object):
         ax.plot([vel[1] for vel in self.vel_polar],
                 label='tangential velocity')
         ax.grid(True)
-        ax.legend()
+        #ax.legend()
 
     def summary_plot(self):
         self._transform_vectors()
