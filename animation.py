@@ -169,7 +169,7 @@ class RocketAnimation(object):
         self._transform_vectors()
         self.fig = plt.figure(figsize=(12, 12), num=1,
                               clear=True, tight_layout=True)
-        self.ax = self.fig.add_subplot(3, 3, (1, 6))
+        self.ax = self.fig.add_subplot(3, 3, (1, 8))
         self.thrustax = self.fig.add_subplot(3, 3, 3)
         self.stateax = self.fig.add_subplot(3, 3, 6)
         self.energyax = self.fig.add_subplot(3, 3, 9)
@@ -188,7 +188,7 @@ class RocketAnimation(object):
         self._transform_vectors()
         self.fig = plt.figure(figsize=(12, 12), num=1,
                               clear=True, tight_layout=True)
-        self.ax = self.fig.add_subplot(3, 3, (1, 6))
+        self.ax = self.fig.add_subplot(3, 3, (1, 8))
         self.thrustax = self.fig.add_subplot(3, 3, 3)
         self.stateax = self.fig.add_subplot(3, 3, 6)
         self.energyax = self.fig.add_subplot(3, 3, 9)
