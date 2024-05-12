@@ -161,12 +161,12 @@ class RocketAnimation(object):
         Shows the animation in a pop-up window
         '''
         self._transform_vectors()
-        self.fig = plt.figure(figsize=(10, 7), num=1,
+        self.fig = plt.figure(figsize=(10, 5), num=1,
                               clear=True, tight_layout=True)
-        self.ax = self.fig.add_subplot(121)
-        self.thrustax = self.fig.add_subplot(222)
-        self.stateax = self.fig.add_subplot(224)
-        self.energyax = self.fig.add_subplot(226)
+        self.ax = self.fig.add_subplot(1, 2, 1)
+        self.thrustax = self.fig.add_subplot(3, 2, 2)
+        self.stateax = self.fig.add_subplot(3, 2, 4)
+        self.energyax = self.fig.add_subplot(3, 2, 6)
         frames_to_show = range(0, len(self.states), step)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
                             frames=frames_to_show, blit=True, interval=100, repeat=False)
