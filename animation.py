@@ -37,6 +37,8 @@ class RocketAnimation(object):
         self.rtarget = list()
         self.rmax = list()
 
+        self.Us = list()
+
         self.xlim = xlim
         self.ylim = ylim
 
@@ -76,9 +78,14 @@ class RocketAnimation(object):
             *self._circle(self.r_target), '--', label='Target Orbit')
         self.max_circle, = self.ax.plot(
             *self._circle(self.r_max), '--', label='Maximum Radius')
+        
+        self.energy_line, = self.energy_ax.plot([], [], label='Potential Energy')  # Line for potential energy
 
         self.ax.grid(True)
         self.ax.legend(loc='upper left')
+
+        self.energy_ax.grid(True)
+        self.energy_ax.legend(loc='upper right')
 
         # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
         # self.thrusttheta, = self.thrustax.plot(
@@ -102,7 +109,7 @@ class RocketAnimation(object):
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
             self.thrustr, self.requested_thrustr,\
-            self.stater, self.statetheta
+            self.stater, self.statetheta, self.energy_line
 
     def _animate(self, i):
         '''
@@ -116,12 +123,20 @@ class RocketAnimation(object):
             line to update
         '''
         st = self.states[i]
+        r = np.linalg.norm(st[:2])
+        U = -((2 * np.pi) ** 2) / r
+        self.Us.append(U)
+
         vec = self.thrusts[i] * self.t_vec_len * (self.xlim[1] - self.xlim[0])
 
         self.line.set_data([st[0]], [st[1]])
         self.min_circle.set_data(*self._circle(self.rmin[i]))
         self.target_circle.set_data(*self._circle(self.rtarget[i]))
         self.max_circle.set_data(*self._circle(self.rmax[i]))
+        self.energy_line.set_data(range(i + 1), self.Us)
+
+        self.energy_ax.set_xlim(0, len(self.Us) + 1)
+        self.energy_ax.set_ylim(min(self.Us) * 1.1, 0)  # Assuming potential energy is always negative
 
         self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
         self.fig.suptitle(f'Iteration: {i}')
@@ -159,7 +174,7 @@ class RocketAnimation(object):
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
             self.thrustr, self.requested_thrustr, \
-            self.stater, self.statetheta
+            self.stater, self.statetheta, self.energy_line
 
     def show_animation(self, step=1):
         '''
@@ -245,7 +260,7 @@ class RocketAnimation(object):
 
         self._plot_thrust_magnitude(ax1)
         # self._plot_thrust_value(ax2)
-        self._plot_thrust_direction(ax2)
+        # self._plot_thrust_direction(ax2)
         self._plot_radius(ax3)
         self._plot_velocities(ax4)
 
@@ -304,6 +319,10 @@ class RocketAnimation(object):
         self.rmin.append(rmin)
         self.rtarget.append(rtarget)
         self.rmax.append(rmax)
+
+        r = np.linalg.norm(state[:2])
+        U = -((2 * np.pi) ** 2) / r
+        self.Us.append(U) # Calculate and store potential energy
 
 
 if __name__ == '__main__':
