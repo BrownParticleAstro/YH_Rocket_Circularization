@@ -100,7 +100,7 @@ class RocketAnimation(object):
             self.stateax.legend(loc='upper right')
             self.stateax_legend_created = True
 
-        self.energy_line, = self.energyax.plot([], [], color='g', label='Potential Energy')  # Line for potential energy
+        self.energy_line, = self.energyax.plot([], [], color='r', label='Potential Energy')  # Line for potential energy
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
@@ -152,7 +152,7 @@ class RocketAnimation(object):
         self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
 
         self.energy_line.set_data([range(i)], self.Us[:i])
-        self.energy_line.set_color('g')
+        self.energy_line.set_color('r')
         max_value = np.max(self.Us)
         min_value = np.min(self.Us)
         self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
