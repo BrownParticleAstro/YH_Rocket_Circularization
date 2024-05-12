@@ -167,7 +167,7 @@ class RocketAnimation(object):
         Shows the animation in a pop-up window
         '''
         self._transform_vectors()
-        self.fig = plt.figure(figsize=(12, 12), num=1,
+        self.fig = plt.figure(figsize=(12, 16), num=1,
                               clear=True, tight_layout=True)
         self.ax = self.fig.add_subplot(3, 3, (1, 8))
         self.thrustax = self.fig.add_subplot(3, 3, 3)
@@ -186,7 +186,7 @@ class RocketAnimation(object):
             name: str, the file name
         '''
         self._transform_vectors()
-        self.fig = plt.figure(figsize=(12, 12), num=1,
+        self.fig = plt.figure(figsize=(12, 16), num=1,
                               clear=True, tight_layout=True)
         self.ax = self.fig.add_subplot(3, 3, (1, 8))
         self.thrustax = self.fig.add_subplot(3, 3, 3)
