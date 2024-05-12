@@ -246,11 +246,11 @@ class RocketAnimation(object):
             nrows=2, ncols=2, figsize=(10, 5), num=1, clear=True)
         self.fig.suptitle('Run Summary')
 
-        self._plot_thrust_magnitude(ax1)
-        # self._plot_thrust_value(ax2)
-        self._plot_thrust_direction(ax2)
-        self._plot_radius(ax3)
-        self._plot_velocities(ax4)
+        # self._plot_thrust_magnitude(ax1)
+        # # self._plot_thrust_value(ax2)
+        # self._plot_thrust_direction(ax2)
+        # self._plot_radius(ax3)
+        # self._plot_velocities(ax4)
 
         self.fig.tight_layout()
 
