@@ -80,7 +80,7 @@ class RocketAnimation(object):
             *self._circle(self.r_max), '--', label='Maximum Radius')
 
         self.ax.grid(True)
-        self.ax.legend(loc='upper left', handle=['Minimum Radius', 'Target Orbit', 'Maximum Radius'])
+        self.ax.legend(loc='upper left', handles=['Minimum Radius', 'Target Orbit', 'Maximum Radius'])
 
         # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
         # self.thrusttheta, = self.thrustax.plot(
