@@ -95,20 +95,23 @@ class RocketAnimation(object):
         self.thrustr, = self.thrustax.plot([], [], label='thrust magnitude')
         self.requested_thrustr, = self.thrustax.plot(
             [], [], label='requested thrust magnitude')
-
         self.thrustax.grid(True)
         if not hasattr(self, 'thrustax_legend_created'):
             self.thrustax.legend(loc='upper right')
             self.thrustax_legend_created = True
 
-        self.energy_line, = self.stateax.plot([], [], label='Potential Energy')  # Line for potential energy
         self.stater, = self.stateax.plot([], [], label='state r')
         self.statetheta, = self.stateax.plot([], [], label='state $\\theta$')
-
         self.stateax.grid(True)
         if not hasattr(self, 'stateax_legend_created'):
             self.stateax.legend(loc='upper right')
             self.stateax_legend_created = True
+
+        self.energy_line, = self.energyax.plot([], [], label='Potential Energy')  # Line for potential energy
+        self.energyax.grid(True)
+        if not hasattr(self, 'energyax_legend_created'):
+            self.energyax.legend(loc='upper right')
+            self.energyax_legend_created = True
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
             self.thrustr, self.requested_thrustr,\
@@ -135,20 +138,6 @@ class RocketAnimation(object):
 
         self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
         self.fig.suptitle(f'Iteration: {i}')
-        # self.arrow = self.ax.arrow(st[0], st[1], vec[0], vec[1])
-
-        # self.thrustr.set_data([range(i)], [thrust[0]
-        #                       for thrust in self.thrusts_polar[:i]])
-        # self.thrusttheta.set_data([range(i)], [thrust[1]
-        #                                        for thrust in self.thrusts_polar[:i]])
-        # self.requested_thrustr.set_data(
-        #     [range(i)], [thrust[0] for thrust in self.requested_thrusts_polar[:i]])
-        # self.requested_thrusttheta.set_data(
-        #     [range(i)], [thrust[1] for thrust in self.requested_thrusts_polar[:i]])
-
-        # max_value = np.max([np.abs(self.thrusts_polar), np.abs(self.requested_thrusts_polar)])
-        # self.thrustax.set_xlim(-0.5, i + 0.5)
-        # self.thrustax.set_ylim(-max_value*1.1, max_value*1.1)
 
         self.thrustr.set_data([range(i)], self.thrusts_norm[:i])
         self.requested_thrustr.set_data(
@@ -162,14 +151,20 @@ class RocketAnimation(object):
         # self.statetheta.set_data([range(i)], self.thetas[:i])
 
         # max_value = np.max([np.abs(self.rs), np.abs(self.thetas)])
+        max_value = np.max(np.abs(self.rs))
+        min_value = np.min(np.abs(self.rs))
+        self.stateax.set_xlim(-0.5, len(self.rs) + 0.5)
+        self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
+
+        self.energy_line.set_data(range(i + 1), self.Us)
         max_value = np.max(np.abs(self.Us))
         min_value = np.min(np.abs(self.Us))
-        self.stateax.set_xlim(-0.5, len(self.Us) + 0.5)
-        self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
+        self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
+        self.energyax.set_ylim(min_value - max_value * .1, max_value*1.1)
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
             self.thrustr, self.requested_thrustr, \
-            self.stater, self.statetheta
+            self.stater, self.statetheta, self.energy_line
 
     def show_animation(self, step=1):
         '''
@@ -181,6 +176,7 @@ class RocketAnimation(object):
         self.ax = self.fig.add_subplot(121)
         self.thrustax = self.fig.add_subplot(222)
         self.stateax = self.fig.add_subplot(224)
+        self.energyax = self.fig.add_subplot(226)
         frames_to_show = range(0, len(self.states), step)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
                             frames=frames_to_show, blit=True, interval=100, repeat=False)
@@ -199,6 +195,7 @@ class RocketAnimation(object):
         self.ax = self.fig.add_subplot(121)
         self.thrustax = self.fig.add_subplot(222)
         self.stateax = self.fig.add_subplot(224)
+        self.energyax = self.fig.add_subplot(226)
         frames_to_show = range(0, len(self.states), step)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
                              frames=frames_to_show, blit=True, interval=100, repeat=False)
