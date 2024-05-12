@@ -74,33 +74,33 @@ class RocketAnimation(object):
             [], [], marker='o', markersize=self.marker_size, alpha=self.circle_alpha)
 
         self.min_circle, = self.ax.plot(
-            *self._circle(self.r_min), '--', label='Minimum Radius')
+            *self._circle(self.r_min), '--', color='r', label='Minimum Radius')
         self.target_circle, = self.ax.plot(
-            *self._circle(self.r_target), '--', label='Target Orbit')
+            *self._circle(self.r_target), '--', color='g', label='Target Orbit')
         self.max_circle, = self.ax.plot(
-            *self._circle(self.r_max), '--', label='Maximum Radius')
+            *self._circle(self.r_max), '--', color='b', label='Maximum Radius')
 
         self.ax.grid(True)
         if not hasattr(self, 'ax_legend_created'):
             self.ax.legend(loc='upper left')
             self.ax_legend_created = True
 
-        self.thrustr, = self.thrustax.plot([], [], label='thrust magnitude')
+        self.thrustr, = self.thrustax.plot([], [], color='g', label='thrust magnitude')
         self.requested_thrustr, = self.thrustax.plot(
-            [], [], label='requested thrust magnitude')
+            [], [], color='b', label='requested thrust magnitude')
         self.thrustax.grid(True)
         if not hasattr(self, 'thrustax_legend_created'):
             self.thrustax.legend(loc='upper right')
             self.thrustax_legend_created = True
 
-        self.stater, = self.stateax.plot([], [], label='state r')
-        self.statetheta, = self.stateax.plot([], [], label='state $\\theta$')
+        self.stater, = self.stateax.plot([], [], color='g', label='state r')
+        self.statetheta, = self.stateax.plot([], [], color='b', label='state $\\theta$')
         self.stateax.grid(True)
         if not hasattr(self, 'stateax_legend_created'):
             self.stateax.legend(loc='upper right')
             self.stateax_legend_created = True
 
-        self.energy_line, = self.energyax.plot([], [], label='Potential Energy')  # Line for potential energy
+        self.energy_line, = self.energyax.plot([], [], color='g', label='Potential Energy')  # Line for potential energy
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
@@ -126,13 +126,17 @@ class RocketAnimation(object):
 
         self.line.set_data([st[0]], [st[1]])
         self.min_circle.set_data(*self._circle(self.rmin[i]))
+        self.min_circle.set_color('r')
         self.target_circle.set_data(*self._circle(self.rtarget[i]))
+        self.target_circle.set_color('g')
         self.max_circle.set_data(*self._circle(self.rmax[i]))
+        self.max_circle.set_color('b')
 
         self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
         self.fig.suptitle(f'Iteration: {i}')
 
         self.thrustr.set_data([range(i)], self.thrusts_norm[:i])
+        self.thrustr.set_color('g')
         self.requested_thrustr.set_data(
             [range(i)], self.requested_thrusts_norm[:i])
 
@@ -141,15 +145,14 @@ class RocketAnimation(object):
         self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
 
         self.stater.set_data([range(i)], self.rs[:i])
+        self.stater.set_color('g')
         max_value = np.max(np.abs(self.rs))
         min_value = np.min(np.abs(self.rs))
         self.stateax.set_xlim(-0.5, len(self.rs) + 0.5)
         self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
 
-        print(self.Us)
-        print(self.Us[:i])
-        print("=========")
         self.energy_line.set_data([range(i)], self.Us[:i])
+        self.energy_line.set_color('g')
         max_value = np.max(self.Us)
         min_value = np.min(self.Us)
         self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
