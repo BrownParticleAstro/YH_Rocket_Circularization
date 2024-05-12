@@ -98,7 +98,7 @@ class RocketAnimation(object):
 
         self.thrustax.grid(True)
         if not hasattr(self, 'thrustax_legend_created'):
-            self.ax.legend(loc='upper right')
+            self.thrustax.legend(loc='upper right')
             self.thrustax_legend_created = True
 
         self.energy_line, = self.stateax.plot([], [], label='Potential Energy')  # Line for potential energy
@@ -107,7 +107,7 @@ class RocketAnimation(object):
 
         self.stateax.grid(True)
         if not hasattr(self, 'stateax_legend_created'):
-            self.ax.legend(loc='upper right')
+            self.stateax.legend(loc='upper right')
             self.stateax_legend_created = True
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
