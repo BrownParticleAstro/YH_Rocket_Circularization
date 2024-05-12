@@ -79,14 +79,11 @@ class RocketAnimation(object):
         self.max_circle, = self.ax.plot(
             *self._circle(self.r_max), '--', label='Maximum Radius')
         
-        self.energy_line, = self.energy_ax.plot([], [], label='Potential Energy')  # Line for potential energy
+        self.energy_line, = self.ax.plot([], [], label='Potential Energy')  # Line for potential energy
 
         self.ax.grid(True)
         self.ax.legend(loc='upper left')
-
-        self.energy_ax.grid(True)
-        self.energy_ax.legend(loc='upper right')
-
+        
         # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
         # self.thrusttheta, = self.thrustax.plot(
         #     [], [], label='thrust $\\theta$')
