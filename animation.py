@@ -80,7 +80,7 @@ class RocketAnimation(object):
             *self._circle(self.r_max), '--', label='Maximum Radius')
 
         self.ax.grid(True)
-        self.ax.legend(loc='upper left', handles=['Minimum Radius', 'Target Orbit', 'Maximum Radius'])
+        self.ax.legend(loc='upper left')
 
         # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
         # self.thrusttheta, = self.thrustax.plot(
@@ -94,14 +94,14 @@ class RocketAnimation(object):
             [], [], label='requested thrust magnitude')
 
         self.thrustax.grid(True)
-        self.thrustax.legend(loc='upper right', handles=['thrust magnitude', 'requested thrust magnitude'])
+        self.thrustax.legend(loc='upper right')
 
         self.energy_line, = self.stateax.plot([], [], label='Potential Energy')  # Line for potential energy
         self.stater, = self.stateax.plot([], [], label='state r')
         self.statetheta, = self.stateax.plot([], [], label='state $\\theta$')
 
         self.stateax.grid(True)
-        self.stateax.legend(loc='upper right', handles=['Potential Energy', 'state r', 'state $\\theta$'])
+        self.stateax.legend(loc='upper right')
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
             self.thrustr, self.requested_thrustr,\
@@ -197,64 +197,64 @@ class RocketAnimation(object):
                              frames=frames_to_show, blit=True, interval=100, repeat=False)
         anim.save(name, dpi=80)
 
-    def _plot_thrust_magnitude(self, ax):
-        ax.set_title('Thrust Magnitude')
-        ax.plot(self.thrusts_norm, label='thrust magnitude')
-        ax.plot(self.requested_thrusts_norm,
-                    label='requested thrust magnitude')
-        ax.grid(True)
-        #ax.legend()
+    # def _plot_thrust_magnitude(self, ax):
+    #     ax.set_title('Thrust Magnitude')
+    #     ax.plot(self.thrusts_norm, label='thrust magnitude')
+    #     ax.plot(self.requested_thrusts_norm,
+    #                 label='requested thrust magnitude')
+    #     ax.grid(True)
+    #     #ax.legend()
 
-    def _plot_thrust_value(self, ax):
-        ax.set_title('Thrust Values')
-        ax.semilogy([thrust[0]
-                     for thrust in self.thrusts_polar], label='thrust radial')
-        ax.semilogy([thrust[1]
-                     for thrust in self.thrusts_polar], label='thrust tangent')
-        ax.semilogy([thrust[0] for thrust in self.requested_thrusts_polar],
-                    label='requested thrust radial')
-        ax.semilogy([thrust[1] for thrust in self.requested_thrusts_polar],
-                    label='requested thrust tangent')
-        ax.grid(True)
-        #ax.legend()
+    # def _plot_thrust_value(self, ax):
+    #     ax.set_title('Thrust Values')
+    #     ax.semilogy([thrust[0]
+    #                  for thrust in self.thrusts_polar], label='thrust radial')
+    #     ax.semilogy([thrust[1]
+    #                  for thrust in self.thrusts_polar], label='thrust tangent')
+    #     ax.semilogy([thrust[0] for thrust in self.requested_thrusts_polar],
+    #                 label='requested thrust radial')
+    #     ax.semilogy([thrust[1] for thrust in self.requested_thrusts_polar],
+    #                 label='requested thrust tangent')
+    #     ax.grid(True)
+    #     #ax.legend()
 
-    def _plot_thrust_direction(self, ax):
-        ax.set_title('Thrust Direction (Angle from $\hat{r}$)')
-        ax.plot(self.thrust_direction, label='Thrust Direction')
-        ax.plot(self.requested_thrust_direction,
-                label='Requested Thrust Direction')
-        ax.grid(True)
-        #ax.legend()
+    # def _plot_thrust_direction(self, ax):
+    #     ax.set_title('Thrust Direction (Angle from $\hat{r}$)')
+    #     ax.plot(self.thrust_direction, label='Thrust Direction')
+    #     ax.plot(self.requested_thrust_direction,
+    #             label='Requested Thrust Direction')
+    #     ax.grid(True)
+    #     #ax.legend()
 
-    def _plot_radius(self, ax):
-        ax.set_title('Radius')
-        ax.plot(self.rs, label='radius')
-        ax.grid(True)
-        #ax.legend()
+    # def _plot_radius(self, ax):
+    #     ax.set_title('Radius')
+    #     ax.plot(self.rs, label='radius')
+    #     ax.grid(True)
+    #     #ax.legend()
 
-    def _plot_velocities(self, ax):
-        ax.set_title('Velocities')
-        ax.plot([vel[0] for vel in self.vel_polar], label='radial velocity')
-        ax.plot([vel[1] for vel in self.vel_polar],
-                label='tangential velocity')
-        ax.grid(True)
-        #ax.legend()
+    # def _plot_velocities(self, ax):
+    #     ax.set_title('Velocities')
+    #     ax.plot([vel[0] for vel in self.vel_polar], label='radial velocity')
+    #     ax.plot([vel[1] for vel in self.vel_polar],
+    #             label='tangential velocity')
+    #     ax.grid(True)
+    #     #ax.legend()
 
-    def summary_plot(self):
-        self._transform_vectors()
-        self.fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(
-            nrows=2, ncols=2, figsize=(10, 5), num=1, clear=True)
-        self.fig.suptitle('Run Summary')
+    # def summary_plot(self):
+    #     self._transform_vectors()
+    #     self.fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(
+    #         nrows=2, ncols=2, figsize=(10, 5), num=1, clear=True)
+    #     self.fig.suptitle('Run Summary')
 
-        # self._plot_thrust_magnitude(ax1)
-        # # self._plot_thrust_value(ax2)
-        # self._plot_thrust_direction(ax2)
-        # self._plot_radius(ax3)
-        # self._plot_velocities(ax4)
+    #     # self._plot_thrust_magnitude(ax1)
+    #     # # self._plot_thrust_value(ax2)
+    #     # self._plot_thrust_direction(ax2)
+    #     # self._plot_radius(ax3)
+    #     # self._plot_velocities(ax4)
 
-        self.fig.tight_layout()
+    #     self.fig.tight_layout()
 
-        return self.fig
+    #     return self.fig
 
     def _get_transforms(self, states):
 
