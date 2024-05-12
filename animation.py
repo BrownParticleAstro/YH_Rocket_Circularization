@@ -203,7 +203,7 @@ class RocketAnimation(object):
         ax.plot(self.requested_thrusts_norm,
                     label='requested thrust magnitude')
         ax.grid(True)
-        ax.legend()
+        #ax.legend()
 
     def _plot_thrust_value(self, ax):
         ax.set_title('Thrust Values')
@@ -216,7 +216,7 @@ class RocketAnimation(object):
         ax.semilogy([thrust[1] for thrust in self.requested_thrusts_polar],
                     label='requested thrust tangent')
         ax.grid(True)
-        ax.legend()
+        #ax.legend()
 
     def _plot_thrust_direction(self, ax):
         ax.set_title('Thrust Direction (Angle from $\hat{r}$)')
@@ -224,13 +224,13 @@ class RocketAnimation(object):
         ax.plot(self.requested_thrust_direction,
                 label='Requested Thrust Direction')
         ax.grid(True)
-        ax.legend()
+        #ax.legend()
 
     def _plot_radius(self, ax):
         ax.set_title('Radius')
         ax.plot(self.rs, label='radius')
         ax.grid(True)
-        ax.legend()
+        #ax.legend()
 
     def _plot_velocities(self, ax):
         ax.set_title('Velocities')
@@ -238,7 +238,7 @@ class RocketAnimation(object):
         ax.plot([vel[1] for vel in self.vel_polar],
                 label='tangential velocity')
         ax.grid(True)
-        ax.legend()
+        #ax.legend()
 
     def summary_plot(self):
         self._transform_vectors()
