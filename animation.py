@@ -66,12 +66,6 @@ class RocketAnimation(object):
             line to update
         '''
 
-        if not hasattr(self, 'initialized_legends'):
-            self.ax.legend(loc='upper left')
-            self.thrustax.legend(loc='upper right')
-            self.stateax.legend(loc='upper right')
-            self.initialized_legends = True
-
         self.t_vec_len = self.t_vec_len
         self.arrow = Arrow(posA=(0, 0), posB=(
             0, 0), arrowstyle='simple', mutation_scale=10, color='r')
@@ -87,6 +81,8 @@ class RocketAnimation(object):
             *self._circle(self.r_max), '--', label='Maximum Radius')
 
         self.ax.grid(True)
+        if not hasattr(self, 'initialized_legends'):
+            self.ax.legend(loc='upper left')
 
         # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
         # self.thrusttheta, = self.thrustax.plot(
@@ -100,12 +96,17 @@ class RocketAnimation(object):
             [], [], label='requested thrust magnitude')
 
         self.thrustax.grid(True)
+        if not hasattr(self, 'initialized_legends'):
+            self.thrustax.legend(loc='upper right')
 
         self.energy_line, = self.stateax.plot([], [], label='Potential Energy')  # Line for potential energy
         self.stater, = self.stateax.plot([], [], label='state r')
         self.statetheta, = self.stateax.plot([], [], label='state $\\theta$')
 
         self.stateax.grid(True)
+        if not hasattr(self, 'initialized_legends'):
+            self.stateax.legend(loc='upper right')
+            self.initialized_legends = True
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
             self.thrustr, self.requested_thrustr,\
