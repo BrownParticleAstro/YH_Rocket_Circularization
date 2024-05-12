@@ -146,6 +146,9 @@ class RocketAnimation(object):
         self.stateax.set_xlim(-0.5, len(self.rs) + 0.5)
         self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
 
+        print(self.Us)
+        print(self.Us[:i])
+        print("=========")
         self.energy_line.set_data([range(i)], self.Us[:i])
         max_value = np.max(np.abs(self.Us))
         min_value = np.min(np.abs(self.Us))
