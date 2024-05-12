@@ -139,8 +139,9 @@ class RocketAnimation(object):
         self.max_circle.set_data(*self._circle(self.rmax[i]))
         self.energy_line.set_data(range(i + 1), self.Us)
 
-        self.energy_ax.set_xlim(0, len(self.Us) + 1)
-        self.energy_ax.set_ylim(min(self.Us) * 1.1, 0)  # Assuming potential energy is always negative
+        self.energy_ax.set_xlim(0, i + 1)
+        if len(self.Us) > 0:
+            self.energy_ax.set_ylim(min(self.Us) * 1.1, max(self.Us) * 1.1)   # Assuming potential energy is always negative
 
         self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
         self.fig.suptitle(f'Iteration: {i}')
@@ -220,7 +221,7 @@ class RocketAnimation(object):
         ax.plot(self.requested_thrusts_norm,
                     label='requested thrust magnitude')
         ax.grid(True)
-        ax.legend()
+        #ax.legend()
 
     def _plot_thrust_value(self, ax):
         ax.set_title('Thrust Values')
