@@ -141,10 +141,10 @@ class RocketAnimation(object):
         self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
 
         self.stater.set_data([range(i)], self.rs[:i])
-        max_value = np.max(np.abs(self.rs))
-        min_value = np.min(np.abs(self.rs))
+        max_value = np.max(self.rs)
+        min_value = np.min(self.rs)
         self.stateax.set_xlim(-0.5, len(self.rs) + 0.5)
-        self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
+        self.stateax.set_ylim(max_value+10, min_value-10)
 
         print(self.Us)
         print(self.Us[:i])
