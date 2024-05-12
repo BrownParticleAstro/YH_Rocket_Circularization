@@ -162,9 +162,9 @@ class RocketAnimation(object):
         # self.statetheta.set_data([range(i)], self.thetas[:i])
 
         # max_value = np.max([np.abs(self.rs), np.abs(self.thetas)])
-        max_value = np.max(np.abs(self.rs))
-        min_value = np.min(np.abs(self.rs))
-        self.stateax.set_xlim(-0.5, len(self.rs) + 0.5)
+        max_value = np.max(np.abs(self.Us))
+        min_value = np.min(np.abs(self.Us))
+        self.stateax.set_xlim(-0.5, len(self.Us) + 0.5)
         self.stateax.set_ylim(min_value - max_value * .1, max_value*1.1)
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
