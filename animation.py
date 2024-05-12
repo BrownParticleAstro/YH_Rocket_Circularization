@@ -85,13 +85,6 @@ class RocketAnimation(object):
             self.ax.legend(loc='upper left')
             self.ax_legend_created = True
 
-        # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
-        # self.thrusttheta, = self.thrustax.plot(
-        #     [], [], label='thrust $\\theta$')
-        # self.requested_thrustr, = self.thrustax.plot(
-        #     [], [], label='requested thrust r')
-        # self.requested_thrusttheta, = self.thrustax.plot(
-        #     [], [], label='requested thrust $\\theta$')
         self.thrustr, = self.thrustax.plot([], [], label='thrust magnitude')
         self.requested_thrustr, = self.thrustax.plot(
             [], [], label='requested thrust magnitude')
@@ -148,9 +141,6 @@ class RocketAnimation(object):
         self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
 
         self.stater.set_data([range(i)], self.rs[:i])
-        # self.statetheta.set_data([range(i)], self.thetas[:i])
-
-        # max_value = np.max([np.abs(self.rs), np.abs(self.thetas)])
         max_value = np.max(np.abs(self.rs))
         min_value = np.min(np.abs(self.rs))
         self.stateax.set_xlim(-0.5, len(self.rs) + 0.5)
@@ -171,12 +161,12 @@ class RocketAnimation(object):
         Shows the animation in a pop-up window
         '''
         self._transform_vectors()
-        self.fig = plt.figure(figsize=(10, 5), num=1,
+        self.fig = plt.figure(figsize=(10, 7), num=1,
                               clear=True, tight_layout=True)
         self.ax = self.fig.add_subplot(121)
-        self.thrustax = self.fig.add_subplot(221)
-        self.stateax = self.fig.add_subplot(222)
-        self.energyax = self.fig.add_subplot(223)
+        self.thrustax = self.fig.add_subplot(222)
+        self.stateax = self.fig.add_subplot(224)
+        self.energyax = self.fig.add_subplot(226)
         frames_to_show = range(0, len(self.states), step)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
                             frames=frames_to_show, blit=True, interval=100, repeat=False)
@@ -190,12 +180,12 @@ class RocketAnimation(object):
             name: str, the file name
         '''
         self._transform_vectors()
-        self.fig = plt.figure(figsize=(10, 5), num=1,
+        self.fig = plt.figure(figsize=(10, 7), num=1,
                               clear=True, tight_layout=True)
         self.ax = self.fig.add_subplot(121)
-        self.thrustax = self.fig.add_subplot(221)
-        self.stateax = self.fig.add_subplot(222)
-        self.energyax = self.fig.add_subplot(223)
+        self.thrustax = self.fig.add_subplot(222)
+        self.stateax = self.fig.add_subplot(224)
+        self.energyax = self.fig.add_subplot(226)
         frames_to_show = range(0, len(self.states), step)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
                              frames=frames_to_show, blit=True, interval=100, repeat=False)
