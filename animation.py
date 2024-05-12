@@ -169,10 +169,10 @@ class RocketAnimation(object):
         self._transform_vectors()
         self.fig = plt.figure(figsize=(12, 12), num=1,
                               clear=True, tight_layout=True)
-        self.ax = self.fig.add_subplot(3, 2, 1)
-        self.thrustax = self.fig.add_subplot(3, 3, 1)
-        self.stateax = self.fig.add_subplot(3, 3, 2)
-        self.energyax = self.fig.add_subplot(3, 3, 3)
+        self.ax = self.fig.add_subplot(3, 3, (1, 6))
+        self.thrustax = self.fig.add_subplot(3, 3, 3)
+        self.stateax = self.fig.add_subplot(3, 3, 6)
+        self.energyax = self.fig.add_subplot(3, 3, 9)
         frames_to_show = range(0, len(self.states), step)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
                             frames=frames_to_show, blit=True, interval=100, repeat=False)
@@ -188,10 +188,10 @@ class RocketAnimation(object):
         self._transform_vectors()
         self.fig = plt.figure(figsize=(12, 12), num=1,
                               clear=True, tight_layout=True)
-        self.ax = self.fig.add_subplot(3, 2, 1)
-        self.thrustax = self.fig.add_subplot(3, 3, 1)
-        self.stateax = self.fig.add_subplot(3, 3, 2)
-        self.energyax = self.fig.add_subplot(3, 3, 3)
+        self.ax = self.fig.add_subplot(3, 3, (1, 6))
+        self.thrustax = self.fig.add_subplot(3, 3, 3)
+        self.stateax = self.fig.add_subplot(3, 3, 6)
+        self.energyax = self.fig.add_subplot(3, 3, 9)
         frames_to_show = range(0, len(self.states), step)
         anim = FuncAnimation(self.fig, self._animate, init_func=self._init,
                              frames=frames_to_show, blit=True, interval=100, repeat=False)
