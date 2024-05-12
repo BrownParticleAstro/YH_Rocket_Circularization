@@ -66,12 +66,6 @@ class RocketAnimation(object):
             line to update
         '''
 
-        if not hasattr(self, 'initialized_legends'):
-            self.ax.legend(loc='upper left')
-            self.thrustax.legend(loc='upper right')
-            self.stateax.legend(loc='upper right')
-            self.initialized_legends = True
-
         self.t_vec_len = self.t_vec_len
         self.arrow = Arrow(posA=(0, 0), posB=(
             0, 0), arrowstyle='simple', mutation_scale=10, color='r')
