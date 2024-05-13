@@ -104,7 +104,8 @@ class RocketAnimation(object):
 
         self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy (-GMm/r)')  # Line for potential energy
         self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy (0.5mv^2)')
-        self.added_kinetic_line, = self.energyax.plot([], [], color='b', label='Added KE (sum(KE_t - KE_t-1))')
+        self.total_line, = self.energyax.plot([], [], color='b', label='Total Energy')
+        #self.added_kinetic_line, = self.energyax.plot([], [], color='b', label='Added KE (sum(KE_t - KE_t-1))')
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
@@ -113,7 +114,7 @@ class RocketAnimation(object):
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
             self.thrustr, self.requested_thrustr,\
             self.stater, self.statetheta, \
-            self.potential_line, self.kinetic_line, self.added_kinetic_line
+            self.potential_line, self.kinetic_line, self.total_line
 
     def _animate(self, i):
         '''
@@ -160,8 +161,10 @@ class RocketAnimation(object):
         self.potential_line.set_color('g')
         self.kinetic_line.set_data([range(i)], self.KEs[:i])
         self.kinetic_line.set_color('r')
-        self.added_kinetic_line.set_data([range(i)], self.cumm_dKEs[:i])
-        self.added_kinetic_line.set_color('b')
+        self.total_line.set_date([range(i)], self.TEs[:i])
+        self.kinetic_line.set_color('b')
+        # self.added_kinetic_line.set_data([range(i)], self.cumm_dKEs[:i])
+        # self.added_kinetic_line.set_color('b')
 
         max_value = np.max([self.Us, self.KEs])
         min_value = np.min([self.Us, self.KEs])
@@ -171,7 +174,7 @@ class RocketAnimation(object):
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
             self.thrustr, self.requested_thrustr, \
             self.stater, self.statetheta, \
-            self.potential_line, self.kinetic_line, self.added_kinetic_line
+            self.potential_line, self.kinetic_line, self.total_line
 
     def show_animation(self, step=1):
         '''
@@ -267,15 +270,16 @@ class RocketAnimation(object):
         r_dot = np.linalg.norm(state[2:])
         KE = 0.5 * m * ((r_dot)**2)
         self.KEs.append(KE) # Calculate and store KE
+        self.TEs.append(U+KE)
 
-        dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
-        dKE = 0.5 * m * ((r_dot+dV)**2) - KE
+        # dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
+        # dKE = 0.5 * m * ((r_dot+dV)**2) - KE
 
-        if len(self.cumm_dKEs)==0:
-            old_cummKE = 0
-        else: 
-            old_cummKE = self.cumm_dKEs[-1]
-        self.cumm_dKEs.append(old_cummKE+dKE)
+        # if len(self.cumm_dKEs)==0:
+        #     old_cummKE = 0
+        # else: 
+        #     old_cummKE = self.cumm_dKEs[-1]
+        # self.cumm_dKEs.append(old_cummKE+dKE)
 
 
 if __name__ == '__main__':
