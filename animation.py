@@ -267,7 +267,7 @@ class RocketAnimation(object):
         self.rmax.append(rmax)
 
         r = np.linalg.norm(state[:2])
-        U = (G*M*m) / r
+        U = -(G*M*m) / r
         self.Us.append(U)  # Calculate and store potential energy
 
         r_dot = np.linalg.norm(state[2:])
