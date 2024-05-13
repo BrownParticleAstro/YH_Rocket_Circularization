@@ -96,7 +96,7 @@ class RocketAnimation(object):
             self.thrustax_legend_created = True
 
         self.stater, = self.stateax.plot([], [], color='g', label='state r')
-        self.statetheta, = self.stateax.plot([], [], color='b', label='state $\\theta$')
+        # self.statetheta, = self.stateax.plot([], [], color='b', label='state $\\theta$')
         self.stateax.grid(True)
         if not hasattr(self, 'stateax_legend_created'):
             self.stateax.legend(loc='upper right')
