@@ -565,7 +565,8 @@ class RocketEnv(gym.Env):
         show() method.
         '''
         self.animation.render(self.state, self.last_action, self.last_action,
-                              self.rmin, self.rtarget, self.rmax)
+                              self.rmin, self.rtarget, self.rmax, 
+                              self.G, self.M, self.m, self.dt)
 
     def show(self, path: Optional[str] = None, summary: bool = False, step: int = 10) -> None:
         '''
