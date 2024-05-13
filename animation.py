@@ -275,8 +275,8 @@ class RocketAnimation(object):
         self.KEs.append(KE) # Calculate and store KE
         self.TEs.append(U+KE) # Store Total Energy
 
-        dV = np.linalg.norm(thrust * max_thrust) * dt # dv (m/s^2) * dt (s)
-        dKE = 0.5 * m * ((r_dot+dV)**2) - KE
+        dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
+        dKE = (0.5 * m * (np.linalg.norm(state[2:]+dV)**2)) - KE
 
         if len(self.cumm_dKEs)==0:
             old_cummKE = 0
