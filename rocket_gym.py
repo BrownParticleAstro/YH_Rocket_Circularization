@@ -531,6 +531,7 @@ class RocketEnv(gym.Env):
                 print(f"dv={(total_force / self.m) * self.dt}")
                 print(f"dr={v * self.dt}")
                 print(f"new state={np.array([*r, *v])}")
+                print(" ")
 
             # If out-of-bounds, end the game
             if self.wall_mechanics:
