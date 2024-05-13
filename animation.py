@@ -112,9 +112,10 @@ class RocketAnimation(object):
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
             self.thrustr, self.requested_thrustr,\
-            self.stater, self.statetheta, \
+            self.stater, \
             self.potential_line, self.kinetic_line, self.total_line, \
-            self.added_kinetic_line
+            self.added_kinetic_line #, \
+            # self.statetheta
 
     def _animate(self, i):
         '''
@@ -171,9 +172,10 @@ class RocketAnimation(object):
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
             self.thrustr, self.requested_thrustr, \
-            self.stater, self.statetheta, \
+            self.stater, \
             self.potential_line, self.kinetic_line, self.total_line, \
-            self.added_kinetic_line
+            self.added_kinetic_line #, \
+            #self.statetheta
 
     def show_animation(self, step=1):
         '''
