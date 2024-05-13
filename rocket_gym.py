@@ -559,7 +559,15 @@ class RocketEnv(gym.Env):
             self.done = True
 
         self.done = self.done or truncated
-        reward = 1 + 1/np.linalg.norm(action)
+
+        r_penalty = reward_function(np.array([*r, *v]), action,
+                                      self.rtarget, self.velocity_penalty_rate,
+                                      self.thrust_penalty_rate, 'Quadratic', self.G, self.M)
+        
+        # smaller action equals higher score
+        # smaller penalty equals higher score
+        print(f"{np.linalg.norm(action)}\t{np.linalg.norm(np.abs(r_penalty))}")
+        reward = 1 + 1/(1 + np.linalg.norm(action)) + 1/(1 + np.linalg.norm(np.abs(r_penalty)))
         return self.state, reward, self.done, truncated, info
 
     def render(self, *args: Tuple[Any], **kwargs: Dict[str, Any]) -> None:
