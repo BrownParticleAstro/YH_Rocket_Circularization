@@ -168,7 +168,7 @@ class RocketAnimation(object):
         self.added_kinetic_line.set_data([range(i)], self.cumm_dKEs[:i])
         self.added_kinetic_line.set_color('c')
 
-        max_value = np.max([self.Us, self.KEs])
+        max_value = np.max([self.Us, self.KEs, self.TEs, self.cumm_dKEs])
         min_value = np.min([self.Us, self.KEs])
         self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
         self.energyax.set_ylim(max_value +(0.1*np.abs(min_value)), min_value -(0.1*np.abs(min_value)))
@@ -267,7 +267,7 @@ class RocketAnimation(object):
         self.rmax.append(rmax)
 
         r = np.linalg.norm(state[:2])
-        U = -(G*M*m) / r
+        U = (G*M*m) / r
         self.Us.append(U)  # Calculate and store potential energy
 
         r_dot = np.linalg.norm(state[2:])
