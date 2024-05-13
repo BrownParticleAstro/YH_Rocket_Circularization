@@ -158,10 +158,10 @@ class RocketAnimation(object):
         self.kinetic_line.set_data([range(i)], self.KEs[:i])
         self.kinetic_line.set_color('r')
 
-        max_value = np.max(self.Us + self.KEs)
-        min_value = np.min(self.Us + self.KEs)
+        max_value = np.max([self.Us, self.KEs])
+        min_value = np.min([self.Us, self.KEs])
         self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
-        self.energyax.set_ylim(max_value+10, min_value-10)
+        self.energyax.set_ylim(max_value +(0.1*np.abs(min_value)), min_value -(0.1*np.abs(min_value)))
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
             self.thrustr, self.requested_thrustr, \
