@@ -163,6 +163,10 @@ class RocketAnimation(object):
         self.added_kinetic_line.set_data([range(i)], self.cumm_dKEs[:i])
         self.added_kinetic_line.set_color('b')
 
+        print(len(self.Us[:i]))
+        print(len(self.KEs[:i]))
+        print(len(self.cumm_dKEs[:i]))
+
         max_value = np.max([self.Us, self.KEs])
         min_value = np.min([self.Us, self.KEs])
         self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
@@ -271,10 +275,6 @@ class RocketAnimation(object):
         dKE = 0.5 * m * ((r_dot+dV)**2) - KE
         if len(self.cumm_dKEs)==0: self.cumm_dKEs.append(dKE)
         else: self.cumm_dKEs.append(self.cumm_dKEs[-1]+dKE)
-
-        print(len(self.Us))
-        print(len(self.KEs))
-        print(len(self.cumm_dKEs))
 
 
 if __name__ == '__main__':
