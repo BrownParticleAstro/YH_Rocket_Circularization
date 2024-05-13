@@ -104,7 +104,7 @@ class RocketAnimation(object):
 
         self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy (-GMm/r)')  # Line for potential energy
         self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy (0.5mv^2)')
-        self.added_kinetic_line = self.energyax.plot([], [], color='b', label='Added Kinetic Energy (sum_0^t (KE_t - KE_t-1))')
+        self.added_kinetic_line, = self.energyax.plot([], [], color='b', label='Added Kinetic Energy (sum_0^t (KE_t - KE_t-1))')
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
