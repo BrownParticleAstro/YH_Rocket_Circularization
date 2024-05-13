@@ -103,10 +103,10 @@ class RocketAnimation(object):
             self.stateax.legend(loc='upper right')
             self.stateax_legend_created = True
 
-        self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy (-GMm/r)')  # Line for potential energy
-        self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy (0.5mv^2)')
-        self.total_line, = self.energyax.plot([], [], color='b', label='Total Energy (KE+PE)')
-        self.added_kinetic_line, = self.energyax.plot([], [], color='c', label='Added KE (sum(KE_t - KE_t-1))')
+        self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy')  # (-GMm/r) Line for potential energy
+        self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy') # (0.5mv^2)
+        self.total_line, = self.energyax.plot([], [], color='b', label='Total Energy') # (KE+PE)
+        self.added_kinetic_line, = self.energyax.plot([], [], color='c', label='Added KE') # (sum(KE_t - KE_t-1))
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
@@ -171,7 +171,7 @@ class RocketAnimation(object):
         max_value = np.max([self.Us, self.KEs, self.TEs, self.cumm_dKEs])
         min_value = np.min([self.Us, self.KEs])
         self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
-        self.energyax.set_ylim(min_value -(0.1*np.abs(min_value)), max_value +(0.1*np.abs(min_value)))
+        self.energyax.set_ylim(min_value -(0.25*np.abs(min_value)), max_value +(0.25*np.abs(max_value)))
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
             self.thrustr, self.requested_thrustr, \
