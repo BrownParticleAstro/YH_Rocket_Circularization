@@ -271,16 +271,19 @@ class RocketAnimation(object):
         r_dot = np.linalg.norm(state[2:])
         KE = 0.5 * m * ((r_dot)**2)
         self.KEs.append(KE) # Calculate and store KE
-        self.TEs.append(U+KE)
+        self.TEs.append(U+KE) # Store Total Energy
+        print(f"len(self.TEs)-- {len(self.TEs)}")
 
-        # dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
-        # dKE = 0.5 * m * ((r_dot+dV)**2) - KE
+        dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
+        dKE = 0.5 * m * ((r_dot+dV)**2) - KE
 
-        # if len(self.cumm_dKEs)==0:
-        #     old_cummKE = 0
-        # else: 
-        #     old_cummKE = self.cumm_dKEs[-1]
-        # self.cumm_dKEs.append(old_cummKE+dKE)
+        print(f"len(self.cumm_dKEs)==0-- {len(self.cumm_dKEs)==0}")
+        if len(self.cumm_dKEs)==0:
+            old_cummKE = 0
+        else: 
+            old_cummKE = self.cumm_dKEs[-1]
+        self.cumm_dKEs.append(old_cummKE+dKE)
+        print(f"len(self.cumm_dKEs)-- {len(self.cumm_dKEs)}")
 
 
 if __name__ == '__main__':
