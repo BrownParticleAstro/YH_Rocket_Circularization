@@ -176,7 +176,7 @@ class RocketAnimation(object):
             self.thrustr, self.requested_thrustr, \
             self.stater, self.statetheta, \
             self.potential_line, self.kinetic_line, self.total_line \
-            self.added_kinetic_line
+            #self.added_kinetic_line
 
     def show_animation(self, step=1):
         '''
