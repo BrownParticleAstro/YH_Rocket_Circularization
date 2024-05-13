@@ -282,7 +282,6 @@ class RocketAnimation(object):
             old_cummKE = 0
         else: 
             old_cummKE = self.cumm_dKEs[-1]
-            print(old_cummKE)
         self.cumm_dKEs.append(old_cummKE+dKE)
 
 
