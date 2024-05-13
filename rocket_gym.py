@@ -559,7 +559,7 @@ class RocketEnv(gym.Env):
             self.done = True
 
         self.done = self.done or truncated
-        reward = 1 + 1/action
+        reward = 1 + 1/np.linalg.norm(action)
         return self.state, reward, self.done, truncated, info
 
     def render(self, *args: Tuple[Any], **kwargs: Dict[str, Any]) -> None:
