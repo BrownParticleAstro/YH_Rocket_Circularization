@@ -160,7 +160,7 @@ class RocketAnimation(object):
         self.potential_line.set_color('g')
         self.kinetic_line.set_data([range(i)], self.KEs[:i])
         self.kinetic_line.set_color('r')
-        self.added_kinetic_line.set_data([range(i), self.cumm_dKEs[:i]])
+        self.added_kinetic_line.set_data([range(i)], self.cumm_dKEs[:i])
         self.added_kinetic_line.set_color('b')
 
         max_value = np.max([self.Us, self.KEs])
