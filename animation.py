@@ -162,8 +162,8 @@ class RocketAnimation(object):
         self.potential_line.set_color('g')
         self.kinetic_line.set_data([range(i)], self.KEs[:i])
         self.kinetic_line.set_color('r')
-        self.total_line.set_date([range(i)], self.TEs[:i])
-        self.kinetic_line.set_color('b')
+        self.total_line.set_data([range(i)], self.TEs[:i])
+        self.total_line.set_color('b')
         # self.added_kinetic_line.set_data([range(i)], self.cumm_dKEs[:i])
         # self.added_kinetic_line.set_color('b')
 
