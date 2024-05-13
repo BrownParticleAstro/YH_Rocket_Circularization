@@ -39,6 +39,7 @@ class RocketAnimation(object):
 
         self.Us = list()
         self.KEs = list()
+        self.TEs = list()
         self.cumm_dKEs = list()
 
         self.xlim = xlim
