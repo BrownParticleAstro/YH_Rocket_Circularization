@@ -268,10 +268,10 @@ class RocketAnimation(object):
         KE = 0.5 * m * ((r_dot)**2)
         self.KEs.append(KE) # Calculate and store KE
 
-        # dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
-        # dKE = 0.5 * m * ((r_dot+dV)**2) - KE
-        # if len(self.cumm_dKEs)==0: self.cumm_dKEs.append(dKE)
-        # else: self.cumm_dKEs.append(self.cumm_dKEs[-1]+dKE)
+        dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
+        dKE = 0.5 * m * ((r_dot+dV)**2) - KE
+        old_cummKE = self.cumm_dKEs[1] if len(self.cumm_dKEs)==0 else 0
+        self.cumm_dKEs.append(old_cummKE+dKE)
 
         self.cumm_dKEs.append(1)
 
