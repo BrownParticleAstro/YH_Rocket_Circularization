@@ -272,6 +272,10 @@ class RocketAnimation(object):
         if len(self.cumm_dKEs)==0: self.cumm_dKEs.append(dKE)
         else: self.cumm_dKEs.append(self.cumm_dKEs[-1]+dKE)
 
+        print(len(self.Us))
+        print(len(self.KEs))
+        print(len(self.cumm_dKEs))
+
 
 if __name__ == '__main__':
     pass
