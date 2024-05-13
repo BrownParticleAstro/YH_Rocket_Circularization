@@ -95,16 +95,16 @@ class RocketAnimation(object):
             self.thrustax.legend(loc='upper right')
             self.thrustax_legend_created = True
 
-        self.stater, = self.stateax.plot([], [], color='g', label='state r')
+        self.stater, = self.stateax.plot([], [], color='g', label='state r (m)')
         # self.statetheta, = self.stateax.plot([], [], color='b', label='state $\\theta$')
         self.stateax.grid(True)
         if not hasattr(self, 'stateax_legend_created'):
             self.stateax.legend(loc='upper right')
             self.stateax_legend_created = True
 
-        self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy')  # (-GMm/r) Line for potential energy
-        self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy') # (0.5mv^2)
-        self.total_line, = self.energyax.plot([], [], color='b', label='Total Energy') # (KE+PE)
+        self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy (Nm)')  # (-GMm/r) Line for potential energy
+        self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy (gm/s^2)') # (0.5mv^2)
+        self.total_line, = self.energyax.plot([], [], color='b', label='Total Energy (J)') # (KE+PE)
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
