@@ -104,7 +104,7 @@ class RocketAnimation(object):
 
         self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy (-GMm/r)')  # Line for potential energy
         self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy (0.5mv^2)')
-        self.added_kinetic_line, = self.energyax.plot([], [], color='b', label='Added Kinetic Energy (sum_0^t (KE_t - KE_t-1))')
+        self.added_kinetic_line, = self.energyax.plot([], [], color='b', label='Added KE (sum(KE_t - KE_t-1))')
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
@@ -163,10 +163,6 @@ class RocketAnimation(object):
         self.added_kinetic_line.set_data([range(i)], self.cumm_dKEs[:i])
         self.added_kinetic_line.set_color('b')
 
-        print(len(self.Us[:i]))
-        print(len(self.KEs[:i]))
-        print(len(self.cumm_dKEs[:i]))
-
         max_value = np.max([self.Us, self.KEs])
         min_value = np.min([self.Us, self.KEs])
         self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
@@ -174,7 +170,8 @@ class RocketAnimation(object):
 
         return self.line, self.min_circle, self.target_circle, self.max_circle,\
             self.thrustr, self.requested_thrustr, \
-            self.stater, self.statetheta, self.potential_line, self.kinetic_line, self.added_kinetic_line
+            self.stater, self.statetheta, \
+            self.potential_line, self.kinetic_line, self.added_kinetic_line
 
     def show_animation(self, step=1):
         '''
@@ -271,10 +268,12 @@ class RocketAnimation(object):
         KE = 0.5 * m * ((r_dot)**2)
         self.KEs.append(KE) # Calculate and store KE
 
-        dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
-        dKE = 0.5 * m * ((r_dot+dV)**2) - KE
-        if len(self.cumm_dKEs)==0: self.cumm_dKEs.append(dKE)
-        else: self.cumm_dKEs.append(self.cumm_dKEs[-1]+dKE)
+        # dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
+        # dKE = 0.5 * m * ((r_dot+dV)**2) - KE
+        # if len(self.cumm_dKEs)==0: self.cumm_dKEs.append(dKE)
+        # else: self.cumm_dKEs.append(self.cumm_dKEs[-1]+dKE)
+
+        self.cumm_dKEs(1)
 
 
 if __name__ == '__main__':
