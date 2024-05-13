@@ -558,6 +558,7 @@ class RocketEnv(gym.Env):
         if self.iters >= self.max_step:
             self.done = True
 
+        self.done = self.done or truncated
         return self.state, 1, self.done, truncated, info
 
     def render(self, *args: Tuple[Any], **kwargs: Dict[str, Any]) -> None:

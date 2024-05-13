@@ -12,13 +12,18 @@ from stable_baselines3.common.noise import NormalActionNoise
 import tensorflow as tf
 
 # Initialize and wrap the environment
-env_name = 'RocketCircularization-v1'
-env = DiscretiseAction(RadialBalance())
+# env_name = 'RocketCircularization-v1'
+# env = DiscretiseAction(RadialBalance())
+init_func = rocket_gym.varied_l(r_min=0.5, r_max=1.5)
+env = rocket_gym.RocketEnv(max_step=400, simulation_step=1, rmax=5, rmin=0.5, vmax=1000, max_thrust=100,
+                          oob_penalty=0, dt=0.01, wall_mechanics=False, clip_thrust='None',
+                          velocity_penalty_rate=0.0, thrust_penalty_rate=0.001,
+                          init_r=1, init_theta=0, init_rdot=0, init_thetadot=0)
 
-# Examine the observation space after wrapping
-env.observation_space = gym.spaces.Box(low=-10, high=10, shape=(3,), dtype=np.float32)
-print("Observation space:", env.observation_space)
-print("Sample observation:", env.reset())
+# # Examine the observation space after wrapping
+#env.observation_space = gym.spaces.Box(low=-10, high=10, shape=(3,), dtype=np.float32)
+# print("Observation space:", env.observation_space)
+# print("Sample observation:", env.reset())
 
 # Set up vectorized environment
 env = make_vec_env(lambda: env, n_envs=4)
