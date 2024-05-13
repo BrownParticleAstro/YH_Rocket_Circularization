@@ -40,7 +40,6 @@ class RocketAnimation(object):
         self.Us = list()
         self.KEs = list()
         self.TEs = list()
-        self.cumm_dKEs = list()
 
         self.xlim = xlim
         self.ylim = ylim
@@ -106,7 +105,6 @@ class RocketAnimation(object):
         self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy')  # (-GMm/r) Line for potential energy
         self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy') # (0.5mv^2)
         self.total_line, = self.energyax.plot([], [], color='b', label='Total Energy') # (KE+PE)
-        self.added_kinetic_line, = self.energyax.plot([], [], color='c', label='Added KE') # (sum(KE_t - KE_t-1))
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
@@ -165,11 +163,9 @@ class RocketAnimation(object):
         self.kinetic_line.set_color('r')
         self.total_line.set_data([range(i)], self.TEs[:i])
         self.total_line.set_color('b')
-        self.added_kinetic_line.set_data([range(i)], self.cumm_dKEs[:i])
-        self.added_kinetic_line.set_color('c')
 
-        max_value = np.max([self.Us, self.KEs, self.TEs, self.cumm_dKEs])
-        min_value = np.min([self.Us, self.KEs])
+        max_value = np.max([self.Us, self.KEs, self.TEs])
+        min_value = np.min([self.Us, self.KEs, self.TEs])
         self.energyax.set_xlim(-0.5, len(self.Us) + 0.5)
         self.energyax.set_ylim(min_value -(0.25*np.abs(min_value)), max_value +(0.25*np.abs(max_value)))
 
@@ -274,15 +270,6 @@ class RocketAnimation(object):
         KE = 0.5 * m * ((r_dot)**2)
         self.KEs.append(KE) # Calculate and store KE
         self.TEs.append(U+KE) # Store Total Energy
-
-        dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
-        dKE = ((0.5 * m * ((r_dot+np.linalg.norm(dV))**2))-KE) / 2
-
-        if len(self.cumm_dKEs)==0:
-            old_cummKE = 0
-        else: 
-            old_cummKE = self.cumm_dKEs[-1]
-        self.cumm_dKEs.append(old_cummKE+dKE)
 
 
 if __name__ == '__main__':
