@@ -39,6 +39,7 @@ class RocketAnimation(object):
 
         self.Us = list()
         self.KEs = list()
+        self.cumm_dKEs = list()
 
         self.xlim = xlim
         self.ylim = ylim
@@ -103,6 +104,7 @@ class RocketAnimation(object):
 
         self.potential_line, = self.energyax.plot([], [], color='g', label='Potential Energy (-GMm/r)')  # Line for potential energy
         self.kinetic_line, = self.energyax.plot([], [], color='r', label='Kinetic Energy (0.5mv^2)')
+        self.added_kinetic_line = self.energyax.plot([], [], color='b', label='Added Kinetic Energy (sum_0^t (KE_t - KE_t-1))')
         self.energyax.grid(True)
         if not hasattr(self, 'energyax_legend_created'):
             self.energyax.legend(loc='upper right')
@@ -110,7 +112,8 @@ class RocketAnimation(object):
 
         return self.line, self.min_circle, self.target_circle, self.max_circle, \
             self.thrustr, self.requested_thrustr,\
-            self.stater, self.statetheta, self.potential_line, self.kinetic_line
+            self.stater, self.statetheta, \
+            self.potential_line, self.kinetic_line, self.added_kinetic_line
 
     def _animate(self, i):
         '''
@@ -157,6 +160,8 @@ class RocketAnimation(object):
         self.potential_line.set_color('g')
         self.kinetic_line.set_data([range(i)], self.KEs[:i])
         self.kinetic_line.set_color('r')
+        self.added_kinetic_line.set_data([range(i), self.cumm_dKEs[:i]])
+        self.added_kinetic_line.set_color('b')
 
         max_value = np.max([self.Us, self.KEs])
         min_value = np.min([self.Us, self.KEs])
@@ -240,7 +245,7 @@ class RocketAnimation(object):
         self.requested_thrust_direction = [np.arctan2(
             thrust[1], thrust[0]) for thrust in self.requested_thrusts_polar]
 
-    def render(self, state, thrust, requested_thrust, rmin, rtarget, rmax, G, M, m, dt):
+    def render(self, state, thrust, requested_thrust, rmin, rtarget, rmax, G, M, m, dt, max_thrust):
         '''
         Records the current state in the animation for future rendering
 
@@ -261,6 +266,11 @@ class RocketAnimation(object):
         r_dot = np.linalg.norm(state[2:])
         KE = 0.5 * m * ((r_dot)**2)
         self.KEs.append(KE) # Calculate and store KE
+
+        dV = thrust * max_thrust * dt # dv (m/s^2) * dt (s)
+        dKE = 0.5 * m * ((r_dot+dV)**2) - KE
+        if len(self.cumm_dKEs)==0: self.cumm_dKEs.append(dKE)
+        else: self.cumm_dKEs.append(self.cumm_dKEs[-1]+dKE)
 
 
 if __name__ == '__main__':

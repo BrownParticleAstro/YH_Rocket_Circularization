@@ -525,10 +525,10 @@ class RocketEnv(gym.Env):
             # reward += step_reward * self.dt
 
             if do_print:
-                print(f"gravitational_force={gravitational_force}")
-                print(f"thrust_force={thrust_force}")
-                print(f"total_force={total_force}")
-                print(f"dv={total_force / self.m * self.dt}")
+                print(f"gravitational_acc={gravitational_force/ self.m}")
+                print(f"thrust_acc={thrust_force / self.m}")
+                print(f"total_acc={total_force / self.m}")
+                print(f"dv={(total_force / self.m) * self.dt}")
                 print(f"dr={v * self.dt}")
                 print(f"new state={np.array([*r, *v])}")
 
@@ -566,7 +566,8 @@ class RocketEnv(gym.Env):
         '''
         self.animation.render(self.state, self.last_action, self.last_action,
                               self.rmin, self.rtarget, self.rmax, 
-                              self.G, self.M, self.m, self.dt)
+                              self.G, self.M, self.m, self.dt, 
+                              self.max_thrust)
 
     def show(self, path: Optional[str] = None, summary: bool = False, step: int = 10) -> None:
         '''
