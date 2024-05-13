@@ -286,6 +286,7 @@ class RocketAnimation(object):
         print(f"len(self.KEs)-- {len(self.KEs)}")
         print(f"len(self.Us)-- {len(self.Us)}")
         print(f"len(self.TEs)-- {len(self.TEs)}")
+        print("========")
 
 
 if __name__ == '__main__':
