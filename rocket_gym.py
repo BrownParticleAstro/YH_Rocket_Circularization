@@ -291,7 +291,7 @@ def reward_function(state: np.ndarray, action: np.ndarray, prev_score: np.float3
         Reward at this state
     '''
     curr_score = score(state, rtarget, velocity_penalty_rate, G=G, M=M)
-    return curr_score - prev_score - thrust_penalty_rate * np.sum(np.abs(action)), curr_score
+    return curr_score - prev_score - thrust_penalty_rate.astype(int) * np.sum(np.abs(action)), curr_score
 
 
 def clip_by_norm(t: np.ndarray, mins: float, maxs: float) -> np.ndarray:
