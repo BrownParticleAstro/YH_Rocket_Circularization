@@ -205,6 +205,7 @@ def basic_reward(state: np.ndarray, action: np.ndarray, rtarget: float,
         return 0.5
     else:
         return 0
+    
 def reward_function(state: np.ndarray, action: np.ndarray, rtarget: float,
                     velocity_penalty_rate: float, thrust_penalty_rate: float,
                     mode: str = 'Quadratic', G: float = 1, M: float = 1) -> np.float32:
@@ -266,31 +267,31 @@ def score(state: np.ndarray, rtarget: float,  velocity_penalty_rate: float,
     return -np.abs(dist - rtarget) - velocity_penalty_rate * np.sum(np.abs(v - vtarget))
 
 
-# def reward_function(state: np.ndarray, action: np.ndarray, prev_score: np.float32, rtarget: float,
-#                     velocity_penalty_rate: float, thrust_penalty_rate: float,
-#                     G: float=1, M: float=1) -> np.float32:
-#     '''
-#     DEPRECATED
-#     Calculates the reward at the current state with action penalty. Subject to change.
-#     This may be used for a differential reward structure
+def reward_function(state: np.ndarray, action: np.ndarray, prev_score: np.float32, rtarget: float,
+                    velocity_penalty_rate: float, thrust_penalty_rate: float,
+                    G: float=1, M: float=1) -> np.float32:
+    '''
+    DEPRECATED
+    Calculates the reward at the current state with action penalty. Subject to change.
+    This may be used for a differential reward structure
 
-#     reward = current_score - prev_score + thrust_penalty * |u|^2
+    reward = current_score - prev_score + thrust_penalty * |u|^2
 
-#     state: the current game state
-#     action: actions performed to reach this state
-#     prev_score: score from the last time the reward is calculated
-#     rtarget: target radius of the craft
-#     velocity_penalty_rate: ratio of velocity penalty to radius penalty
-#     thrust_penalty_rate: ratio of thrust penalty to radius penalty
+    state: the current game state
+    action: actions performed to reach this state
+    prev_score: score from the last time the reward is calculated
+    rtarget: target radius of the craft
+    velocity_penalty_rate: ratio of velocity penalty to radius penalty
+    thrust_penalty_rate: ratio of thrust penalty to radius penalty
 
-#     G: Gravitational Constant, default 1
-#     M: Mass of center object, default 1
+    G: Gravitational Constant, default 1
+    M: Mass of center object, default 1
 
-#     Return:
-#         Reward at this state
-#     '''
-#     curr_score = score(state, rtarget, velocity_penalty_rate, G=G, M=M)
-#     return curr_score - prev_score - thrust_penalty_rate * np.sum(np.abs(action)), curr_score
+    Return:
+        Reward at this state
+    '''
+    curr_score = score(state, rtarget, velocity_penalty_rate, G=G, M=M)
+    return curr_score - prev_score - thrust_penalty_rate * np.sum(np.abs(action)), curr_score
 
 
 def clip_by_norm(t: np.ndarray, mins: float, maxs: float) -> np.ndarray:
