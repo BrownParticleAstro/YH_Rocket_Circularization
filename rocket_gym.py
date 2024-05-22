@@ -512,13 +512,13 @@ class RocketEnv(gym.Env):
                 v = wall_clip_velocity(v, r, self.rmin, self.rmax)
                 r = clip_by_norm(r, self.rmin, self.rmax)
             # Scored-based reward structure
-            reward += reward_function(np.array([*r, *v]), action,
-                                      self.rtarget, self.velocity_penalty_rate,
-                                      self.thrust_penalty_rate, 'Quadratic', self.G, self.M)
+            # reward += reward_function(np.array([*r, *v]), action,
+            #                           self.rtarget, self.velocity_penalty_rate,
+            #                           self.thrust_penalty_rate, 'Quadratic', self.G, self.M)
             # Differential-score-based Reward structure
-            # step_reward, self.prev_score = reward_function(np.array([*r, *v]), action, self.prev_score, self.rtarget, self.velocity_penalty_rate,
-            #                                                self.thrust_penalty_rate, self.G, self.M)
-            # reward += step_reward * self.dt
+            step_reward, self.prev_score = reward_function(np.array([*r, *v]), action, self.prev_score, self.rtarget, self.velocity_penalty_rate,
+                                                           self.thrust_penalty_rate, self.G, self.M)
+            reward += step_reward * self.dt
 
             # If out-of-bounds, end the game
             if self.wall_mechanics:
