@@ -114,13 +114,17 @@ def varied_l(r_min: float = 0.9, r_max: float = 1.1,
     def func():
         nonlocal r_min, r_max, rdot_min, rdot_max
 
-        r = np.random.uniform(r_min, r_max)
+        # r = np.random.uniform(r_min, r_max)
+        r = np.random.uniform(1, 1)
         theta = np.random.uniform(0, 2 * np.pi)
-        rdot = np.random.uniform(rdot_min, rdot_max)
-        thetadot = (1 + np.random.uniform(dl_min, dl_max)) / r ** 2
+        # rdot = np.random.uniform(rdot_min, rdot_max)
+        rdot = np.random.uniform(1, 1)
+        thetadot = (1 + np.random.uniform(1, 1)) / r ** 2
+        # thetadot = (1 + np.random.uniform(dl_min, dl_max)) / r ** 2
 
+        # pos = [r, 0]
         pos = [r, 0]
-        vel = [rdot, r * thetadot]
+        vel = [rdot, r * thetadot]# setting velocity to 1
 
         rot_mat = np.array([[np.cos(theta), -np.sin(theta)],
                             [np.sin(theta), np.cos(theta)]])
@@ -291,7 +295,7 @@ def reward_function(state: np.ndarray, action: np.ndarray, prev_score: np.float3
         Reward at this state
     '''
     curr_score = score(state, rtarget, velocity_penalty_rate, G=G, M=M)
-    return curr_score - prev_score - int(thrust_penalty_rate) * np.sum(np.abs(action)), curr_score
+    return curr_score - prev_score - thrust_penalty_rate * np.sum(np.abs(action)), curr_score
 
 
 def clip_by_norm(t: np.ndarray, mins: float, maxs: float) -> np.ndarray:
