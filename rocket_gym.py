@@ -362,7 +362,7 @@ class RocketEnv(gym.Env):
                  G: float = 1, M: float = 1, m: float = .01, dt: float = .01,
                  rmin: float = .1, rmax: float = 2, rtarget: float = 1, vmax: float = 10,
                  init_func: Callable[[], np.ndarray] = varied_l(), wall_mechanics: bool = True,
-                 oob_penalty: float = 10, max_thrust: float = .001, clip_thrust: str = 'Ball',
+                 oob_penalty: float = 10, max_thrust: float = .0, clip_thrust: str = 'Ball',
                  velocity_penalty_rate: float = .001, thrust_penalty_rate: float = .0001,
                  max_step: int = 500, simulation_step: int = 1) -> None:
         '''
