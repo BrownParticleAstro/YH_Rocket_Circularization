@@ -124,7 +124,7 @@ class RocketAnimation(object):
         self.target_circle.set_data(*self._circle(self.rtarget[i]))
         self.max_circle.set_data(*self._circle(self.rmax[i]))
 
-        self.arrow.set_positions((st[:2], st[:2] + vec))
+        self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
         self.fig.suptitle(f'Iteration: {i}')
         # self.arrow = self.ax.arrow(st[0], st[1], vec[0], vec[1])
 
