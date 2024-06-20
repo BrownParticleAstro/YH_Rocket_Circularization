@@ -115,7 +115,7 @@ def varied_l(r_min: float = 0.9, r_max: float = 1.1,
         nonlocal r_min, r_max, rdot_min, rdot_max
 
         # r = np.random.uniform(r_min, r_max)
-        r = np.random.uniform(0.8, 1.2)
+        r = np.random.uniform(1.0, 1.0)
         theta = np.random.uniform(0, 2 * np.pi)
         # rdot = np.random.uniform(rdot_min, rdot_max)
         rdot = np.random.uniform(1, 1)
