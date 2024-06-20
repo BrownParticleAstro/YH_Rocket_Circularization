@@ -46,7 +46,7 @@ def make(name):
     if name == 'RocketCircularization-v0':
         init_func = varied_l(r_min=0.5, r_max=1.5)
         return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5,
-                         init_func=init_func, max_thrust=.1,
+                         init_func=init_func, max_thrust=.01,
                          oob_penalty=0, dt=0.03, wall_mechanics=True,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     if name == 'RocketCircularization-v1':
