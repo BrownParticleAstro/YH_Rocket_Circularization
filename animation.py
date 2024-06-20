@@ -81,13 +81,13 @@ class RocketAnimation(object):
         self.ax.grid(True)
         self.ax.legend(loc='upper left')
 
-        self.thrustr, = self.thrustax.plot([], [], label='thrust r')
-        self.thrusttheta, = self.thrustax.plot(
-            [], [], label='thrust $\\theta$')
-        self.requested_thrustr, = self.thrustax.plot(
-            [], [], label='requested thrust r')
-        self.requested_thrusttheta, = self.thrustax.plot(
-            [], [], label='requested thrust $\\theta$')
+        # self.thrustr, = self.thrustax.plot([], [], label='thrust r')
+        # self.thrusttheta, = self.thrustax.plot(
+        #     [], [], label='thrust $\\theta$')
+        # self.requested_thrustr, = self.thrustax.plot(
+        #     [], [], label='requested thrust r')
+        # self.requested_thrusttheta, = self.thrustax.plot(
+        #     [], [], label='requested thrust $\\theta$')
         self.thrustr, = self.thrustax.plot([], [], label='thrust magnitude')
         self.requested_thrustr, = self.thrustax.plot(
             [], [], label='requested thrust magnitude')
