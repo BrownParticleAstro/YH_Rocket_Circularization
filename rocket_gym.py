@@ -46,7 +46,7 @@ def make(name):
     if name == 'RocketCircularization-v0':
         init_func = varied_l(r_min=0.5, r_max=1.5)
         return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5,
-                         init_func=init_func, max_thrust=.01,
+                         init_func=init_func, max_thrust=.05,
                          oob_penalty=0, dt=0.03, wall_mechanics=True,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     if name == 'RocketCircularization-v1':
@@ -115,7 +115,7 @@ def varied_l(r_min: float = 0.9, r_max: float = 1.1,
         nonlocal r_min, r_max, rdot_min, rdot_max
 
         # r = np.random.uniform(r_min, r_max)
-        r = np.random.uniform(1, 1)
+        r = np.random.uniform(0.8, 1.2)
         theta = np.random.uniform(0, 2 * np.pi)
         # rdot = np.random.uniform(rdot_min, rdot_max)
         rdot = np.random.uniform(1, 1)
@@ -362,7 +362,7 @@ class RocketEnv(gym.Env):
                  G: float = 1, M: float = 1, m: float = .01, dt: float = .01,
                  rmin: float = .1, rmax: float = 2, rtarget: float = 1, vmax: float = 10,
                  init_func: Callable[[], np.ndarray] = varied_l(), wall_mechanics: bool = True,
-                 oob_penalty: float = 10, max_thrust: float = .01, clip_thrust: str = 'Ball',
+                 oob_penalty: float = 10, max_thrust: float = .05, clip_thrust: str = 'Ball',
                  velocity_penalty_rate: float = .001, thrust_penalty_rate: float = .0001,
                  max_step: int = 500, simulation_step: int = 1) -> None:
         '''
