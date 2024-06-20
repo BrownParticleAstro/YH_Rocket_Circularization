@@ -46,7 +46,7 @@ def make(name):
     if name == 'RocketCircularization-v0':
         init_func = varied_l(r_min=0.5, r_max=1.5)
         return RocketEnv(max_step=400, simulation_step=3, rmax=1.5, rmin=0.5,
-                         init_func=init_func, max_thrust=.1,
+                         init_func=init_func, max_thrust=.00,
                          oob_penalty=0, dt=0.03, wall_mechanics=True,
                          velocity_penalty_rate=0.1, thrust_penalty_rate=0.001)
     if name == 'RocketCircularization-v1':
@@ -506,7 +506,7 @@ class RocketEnv(gym.Env):
             # Calculate total force
             gravitational_force = - (self.G * self.M * self.m) / \
                 (np.power(np.linalg.norm(r), 3)) * r  # F = - GMm/|r|^3 * r
-            thrust_force = (action-1) * self.m * self.max_thrust
+            thrust_force = action * self.m * self.max_thrust
             total_force = gravitational_force + thrust_force
             # Update position and location, this can somehow guarantee energy conservation
             # If the craft hits a wall, all normal velocity cancels
