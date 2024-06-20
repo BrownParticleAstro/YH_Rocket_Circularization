@@ -362,7 +362,7 @@ class RocketEnv(gym.Env):
                  G: float = 1, M: float = 1, m: float = .01, dt: float = .01,
                  rmin: float = .1, rmax: float = 2, rtarget: float = 1, vmax: float = 10,
                  init_func: Callable[[], np.ndarray] = varied_l(), wall_mechanics: bool = True,
-                 oob_penalty: float = 10, max_thrust: float = .0, clip_thrust: str = 'Ball',
+                 oob_penalty: float = 10, max_thrust: float = .01, clip_thrust: str = 'Ball',
                  velocity_penalty_rate: float = .001, thrust_penalty_rate: float = .0001,
                  max_step: int = 500, simulation_step: int = 1) -> None:
         '''
@@ -481,6 +481,7 @@ class RocketEnv(gym.Env):
 
         # Clipp action if needed
         action = np.array(action)
+        print(action)
         if self.clip_thrust == 'Box':
             action = np.clip(action, -1, 1)
         elif self.clip_thrust == 'Ball':
@@ -505,7 +506,7 @@ class RocketEnv(gym.Env):
             # Calculate total force
             gravitational_force = - (self.G * self.M * self.m) / \
                 (np.power(np.linalg.norm(r), 3)) * r  # F = - GMm/|r|^3 * r
-            thrust_force = action * self.m * self.max_thrust
+            thrust_force = (action-1) * self.m * self.max_thrust
             total_force = gravitational_force + thrust_force
             # Update position and location, this can somehow guarantee energy conservation
             # If the craft hits a wall, all normal velocity cancels
