@@ -124,7 +124,7 @@ def varied_l(r_min: float = 0.9, r_max: float = 1.1,
 
         # pos = [r, 0]
         pos = [r, 0]
-        vel = [0, 1]# setting velocity to 1
+        vel = [0, 1.25]# setting velocity to 1
 
         rot_mat = np.array([[np.cos(theta), -np.sin(theta)],
                             [np.sin(theta), np.cos(theta)]])
