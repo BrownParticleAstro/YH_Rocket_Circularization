@@ -141,10 +141,10 @@ class RocketAnimation(object):
         self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
         self.fig.suptitle(f'Iteration: {i}')
 
-        self.thrustr.set_data([range(i)], self.thrusts[:i])
+        self.thrustr.set_data([range(i)], self.thrusts_norm[:i])
         self.thrustr.set_color('g')
         self.requested_thrustr.set_data(
-            [range(i)], self.requested_thrusts[:i])
+            [range(i)], self.requested_thrusts_norm[:i])
 
         max_value = np.max([self.thrusts_norm, self.requested_thrusts_norm])
         self.thrustax.set_xlim(-0.5, len(self.thrusts_norm) + 0.5)
