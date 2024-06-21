@@ -87,9 +87,9 @@ class RocketAnimation(object):
             self.ax.legend(loc='upper left')
             self.ax_legend_created = True
 
-        self.thrustr, = self.thrustax.plot([], [], color='g', label='thrust magnitude')
+        self.thrustr, = self.thrustax.plot([], [], color='g', label='thrust')
         self.requested_thrustr, = self.thrustax.plot(
-            [], [], color='b', label='requested thrust magnitude')
+            [], [], color='b', label='requested thrust')
         self.thrustax.grid(True)
         if not hasattr(self, 'thrustax_legend_created'):
             self.thrustax.legend(loc='upper right')
@@ -141,12 +141,12 @@ class RocketAnimation(object):
         self.arrow.set_positions(posA=st[:2], posB=st[:2] + vec)
         self.fig.suptitle(f'Iteration: {i}')
 
-        self.thrustr.set_data([range(i)], self.thrusts_norm[:i])
+        self.thrustr.set_data([range(i)], self.thrusts[:i])
         self.thrustr.set_color('g')
         self.requested_thrustr.set_data(
-            [range(i)], self.requested_thrusts_norm[:i])
+            [range(i)], self.requested_thrusts[:i])
 
-        max_value = np.max([self.thrusts_norm, self.requested_thrusts_norm])
+        max_value = np.max([self.thrusts_norm, self.requested_thrusts])
         self.thrustax.set_xlim(-0.5, len(self.thrusts_norm) + 0.5)
         self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
 
@@ -240,9 +240,6 @@ class RocketAnimation(object):
         self.thrusts_polar = self._inverse_transform(transforms, self.thrusts)
         self.requested_thrusts_polar = self._inverse_transform(
             transforms, self.requested_thrusts)
-        self.thrusts_norm = [np.linalg.norm(thrust) for thrust in self.thrusts]
-        self.requested_thrusts_norm = [np.linalg.norm(
-            thrust) for thrust in self.requested_thrusts]
         self.thrust_direction = [np.arctan2(
             thrust[1], thrust[0]) for thrust in self.thrusts_polar]
         self.requested_thrust_direction = [np.arctan2(
