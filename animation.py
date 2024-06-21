@@ -146,7 +146,7 @@ class RocketAnimation(object):
         self.requested_thrustr.set_data(
             [range(i)], self.requested_thrusts[:i])
 
-        max_value = np.max([self.thrusts_norm, self.requested_thrusts])
+        max_value = np.max([self.thrusts, self.requested_thrusts])
         self.thrustax.set_xlim(-0.5, len(self.thrusts_norm) + 0.5)
         self.thrustax.set_ylim(-max_value*0.1, max_value*1.1)
 
