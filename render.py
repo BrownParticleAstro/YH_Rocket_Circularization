@@ -8,12 +8,16 @@ from matplotlib.gridspec import GridSpec
 
 # Renderer is responsible for dynamically rendering the episode data from the test phase using matplotlib.
 class Renderer:
-    def __init__(self, model_save_path):
+    def __init__(self, model_save_path, custom_render_callback=None):
         """
-        Args: model_save_path: Path where the test and training episode data is stored (str).
+        Args: 
+            model_save_path: Path where the test and training episode data is stored (str).
+            custom_render_callback: Optional callback function for custom rendering logic (callable). 
+                                    If provided, it overrides the default rendering logic.
         Returns: None. Initializes internal state and figure handles.
         """
         self.model_save_path = model_save_path
+        self.custom_render_callback = custom_render_callback
         self.data = {
             "training": [],
             "testing": []
@@ -41,16 +45,13 @@ class Renderer:
         """
         # Load training episodes
         training_data_dir = os.path.join(self.model_save_path, "training")
-        print(f"Loading training data from: {training_data_dir}")
         self._load_episodes_from_directory(training_data_dir, "training")
         
         # Load testing episodes
         testing_data_dir = os.path.join(self.model_save_path, "testing")
-        print(f"Loading testing data from: {testing_data_dir}")
         self._load_episodes_from_directory(testing_data_dir, "testing")
         
-        print(f"Training episodes loaded: {len(self.data['training'])}")
-        print(f"Testing episodes loaded: {len(self.data['testing'])}")
+        print(f"Training & Testing episodes loaded!")
 
     def _load_episodes_from_directory(self, directory_path, data_type):
         """
@@ -109,7 +110,8 @@ class Renderer:
         Args:
             mode: Render mode. Default is 'human' (str).
             episode_num: Episode number to render (int).
-
+            data_type: Either "training" or "testing" (str).
+        
         Returns:
             None. Updates the plot dynamically.
         """
@@ -124,17 +126,28 @@ class Renderer:
 
         # Extract the data for the specified episode
         episode_data = self.data[data_type][episode_num - 1]
-        self.state = list(zip(episode_data['x'], episode_data['y'], episode_data['vx'], episode_data['vy']))
+        self.state = list(zip(episode_data['x'], episode_data['y'], episode_data['vx'], episode_data['vy'])) # list of tuples: (x, y, vx, vy)
         self.timestep_history = episode_data['timestep']
         self.action_history = episode_data['action']
         self.radius_history = [np.sqrt(x**2 + y**2) for x, y in zip(episode_data['x'], episode_data['y'])]
 
-        # Now `self.state` has the necessary data, and we can continue with the rendering logic
-        if self.state is None or len(self.state) == 0:
-            print(f"No data available for episode {episode_num}.")
+        # Check if a custom render callback is provided
+        if self.custom_render_callback:
+            print("Using custom rendering callback.")
+            self.custom_render_callback(self.state, self.radius_history, self.action_history, self.timestep_history)
             return
 
-        # Proceed with the rest of the rendering process
+        # Otherwise, proceed with the default rendering logic
+        self._default_render()
+
+    def _default_render(self):
+        """
+        Default rendering logic if no custom rendering function is provided.
+        """
+        if self.state is None or len(self.state) == 0:
+            print(f"No data available for rendering.")
+            return
+
         x, y, vx, vy = self.state[0]
         r = np.sqrt(x**2 + y**2)
         v_radial = (x * vx + y * vy) / r
