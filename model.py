@@ -7,9 +7,6 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 # CustomFeatureExtractor extracts features from the observation space for use in the PPO policy network.
 # It uses separate neural networks for positional, angular momentum, energy, and timestep inputs, concatenating their outputs.
-
-### THIS IS WHERE A STUDENT WOULD WRITE THEIR OWN MODEL
-
 class CustomFeatureExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Box):
         """
@@ -49,7 +46,6 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
         return torch.cat([pos_vel_features, angular_features, energy_features], dim=1)
 
 """ Initializes untrained network of specified structure for PPO training. """
-### A STUDENT WOULD WRITE A CUSTOM VERSION OF THIS FOR THEIR MODEL
 def create_model(env, policy_kwargs=None):
     if policy_kwargs is None:
         policy_kwargs = dict(
@@ -59,4 +55,3 @@ def create_model(env, policy_kwargs=None):
             activation_fn=nn.ReLU,
         )
     return PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1, learning_rate=3e-4, n_steps=2048, batch_size=64, ent_coef=0.01, gamma=0.999)
-

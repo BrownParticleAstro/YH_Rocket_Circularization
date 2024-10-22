@@ -5,7 +5,6 @@ from stable_baselines3.common.callbacks import BaseCallback
 from model import create_model
 
 # SaveBest is a custom callback that saves the best model during training based on average episode reward.
-### TO BE USED FOR STABLEBASELINES, SHOULD BE IMPLEMENTED INSIDE OF TRAIN_MODEL() BY STUDENT
 class SaveBest(BaseCallback):
     def __init__(self, reward_threshold, save_path, verbose=0):
         """
@@ -38,7 +37,6 @@ class SaveBest(BaseCallback):
                 
                 # Save best model if current mean reward is better
                 if mean_reward > self.best_mean_reward:
-                    print(f"Saving model at mean reward: {mean_reward}")
                     self.best_mean_reward = mean_reward
                     self.model.save(os.path.join(self.save_path, "best_model"))
 
@@ -62,7 +60,6 @@ class SaveBest(BaseCallback):
     Train the model in "env" environment for X number of timesteps with Y reward threshold to stop training
     Save into particular directory
 """
-# WOULD BE IMPLEMENTED BY STUDENT
 def train_model(env, save_dir, total_timesteps=10_000, reward_threshold=100):
     """
     Args:
@@ -91,4 +88,3 @@ def train_model(env, save_dir, total_timesteps=10_000, reward_threshold=100):
 
     print(f"Training completed. Model and data saved in {model_save_path}")
     return model, model_save_path
-

@@ -8,20 +8,12 @@ from matplotlib.gridspec import GridSpec
 
 # Renderer is responsible for dynamically rendering the episode data from the test phase using matplotlib.
 class Renderer:
-    def __init__(self, model_save_path, custom_render_callback=None):
+    def __init__(self, model_save_path):
         """
-        Args: 
-            model_save_path: Path where the test and training episode data is stored (str).
-            custom_render_callback: Optional callback function for custom rendering logic (callable). 
-                                    If provided, it overrides the default rendering logic.
+        Args: model_save_path: Path where the test episode data is stored (str).
         Returns: None. Initializes internal state and figure handles.
         """
         self.model_save_path = model_save_path
-        self.custom_render_callback = custom_render_callback
-        self.data = {
-            "training": [],
-            "testing": []
-        }
         self.radius_history = []
         self.action_history = []
         self.timestep_history = []
@@ -36,117 +28,49 @@ class Renderer:
         self.orbit_circles = []
         self.state = None
 
-    def load_data(self):
+    def load_data(self, episode_num):
         """
-        Loads all training and testing episode data from storage and stores them into a data structure.
-        
-        Returns:
-            None. Populates the `data` dictionary with training and testing episode data.
+        Loads the state, action, and timestep data from a storage file.
+        Args: episode_num: Episode number to load (int).
+        Returns: None. Updates internal state variables with loaded data.
         """
-        # Load training episodes
-        training_data_dir = os.path.join(self.model_save_path, "training")
-        self._load_episodes_from_directory(training_data_dir, "training")
+        test_data_dir = os.path.join(self.model_save_path, "testing")
+        filepath = os.path.join(test_data_dir, f'episode_{episode_num}.npz')
+        data = np.load(filepath)
         
-        # Load testing episodes
-        testing_data_dir = os.path.join(self.model_save_path, "testing")
-        self._load_episodes_from_directory(testing_data_dir, "testing")
+        x = data['x']
+        y = data['y']
+        vx = data['vx']
+        vy = data['vy']
+        actions = data['action']
+        timesteps = data['timestep']
         
-        print(f"Training & Testing episodes loaded!")
+        # Compute the radius from x and y values
+        radius = np.sqrt(x**2 + y**2)
+        
+        # Store the data for rendering
+        self.radius_history = radius
+        self.action_history = actions
+        self.timestep_history = timesteps
+        
+        # Store the state to render at each step
+        self.state = np.stack([x, y, vx, vy], axis=1)
 
-    def _load_episodes_from_directory(self, directory_path, data_type):
-        """
-        Helper method to load episode data from a specified directory and append it to the data structure.
-        
-        Args:
-            directory_path: Path to the directory containing episode data (str).
-            data_type: Either "training" or "testing" (str), specifies where the data will be stored.
-
-        Returns:
-            None. Updates the `data` dictionary with the loaded episodes.
-        """
-        # Check if the directory exists
-        if not os.path.exists(directory_path):
-            return
-        
-        # Iterate through each .npz file in the directory
-        for filename in os.listdir(directory_path):
-            if filename.endswith('.npz'):
-                filepath = os.path.join(directory_path, filename)
-                if not os.path.exists(filepath):
-                    continue
-
-                episode_data = self._load_episode_file(filepath)
-                
-                if episode_data is not None:
-                    self.data[data_type].append(episode_data)
-    
-    def _load_episode_file(self, filepath):
-        """
-        Loads a single episode data file (.npz) and returns its contents as a dictionary.
-        
-        Args:
-            filepath: Path to the episode file (str).
-        
-        Returns:
-            Dictionary with episode data, or None if loading failed.
-        """
-        try:
-            data = np.load(filepath)
-            episode_data = {
-                "x": data['x'],
-                "y": data['y'],
-                "vx": data['vx'],
-                "vy": data['vy'],
-                "timestep": data['timestep'],
-                "action": data['action']
-            }
-            return episode_data
-        except Exception as e:
-            return None
-
-    def render(self, mode='human', episode_num=1, data_type='testing'):
+    def render(self, mode='human', episode_num=1):
         """
         Dynamically renders the episode data, including the spaceship's position, velocity, and thrust over time.
         Args:
             mode: Render mode. Default is 'human' (str).
             episode_num: Episode number to render (int).
-            data_type: Either "training" or "testing" (str).
-        
+
         Returns:
             None. Updates the plot dynamically.
         """
         matplotlib.use('TkAgg')
         plt.ion()
-        self.load_data()
 
-        # Ensure that the episode number is within the range of available data
-        if episode_num > len(self.data[data_type]) or episode_num <= 0:
-            print(f"Episode number {episode_num} is out of range.")
-            return
-
-        # Extract the data for the specified episode
-        episode_data = self.data[data_type][episode_num - 1]
-        self.state = list(zip(episode_data['x'], episode_data['y'], episode_data['vx'], episode_data['vy'])) # list of tuples: (x, y, vx, vy)
-        self.timestep_history = episode_data['timestep']
-        self.action_history = episode_data['action']
-        self.radius_history = [np.sqrt(x**2 + y**2) for x, y in zip(episode_data['x'], episode_data['y'])]
-
-        # Check if a custom render callback is provided
-        if self.custom_render_callback:
-            print("Using custom rendering callback.")
-            self.custom_render_callback(self.state, self.radius_history, self.action_history, self.timestep_history)
-            return
-
-        # Otherwise, proceed with the default rendering logic
-        self._default_render()
-
-    def _default_render(self):
-        """
-        Default rendering logic if no custom rendering function is provided.
-        """
-        if self.state is None or len(self.state) == 0:
-            print(f"No data available for rendering.")
-            return
+        if self.state is None:
+            self.load_data(episode_num)
 
         x, y, vx, vy = self.state[0]
         r = np.sqrt(x**2 + y**2)

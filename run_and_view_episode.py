@@ -9,10 +9,10 @@ from test import test_model
 save_dir = './models'
 
 # Create the training environment
-env_train = OrbitalEnvWrapper(r0=1.0, max_steps=20_000, bottleneck_step=True)
+env_train = OrbitalEnvWrapper(r0=1.0)
 
 # Train the model
-model, model_save_path = train_model(env_train, save_dir, total_timesteps=1_000_000, reward_threshold=20_000)
+model, model_save_path = train_model(env_train, save_dir, total_timesteps=1_000_000, reward_threshold=4_000)
 
 # Load the trained model for inference and testing
 env_test = OrbitalEnvWrapper(r0=1.0)
@@ -20,4 +20,4 @@ test_model(env_test, os.path.join(model_save_path, "ppo_orbital_model"), model_s
 
 # Create a renderer instance using the dynamic model_save_path
 renderer = Renderer(model_save_path=model_save_path)
-renderer.render(episode_num=1, data_type='testing')
+renderer.render(episode_num=1)

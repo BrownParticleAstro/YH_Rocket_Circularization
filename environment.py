@@ -7,7 +7,7 @@ from gym import spaces
 # maximum simulation steps, and an optional reward function.
 # Outputs the current state after each step (x, y, vx, vy) and reward.
 class OrbitalEnvironment:
-    def __init__(self, GM=1.0, r0=None, v0=1.0, dt=0.01, max_steps=5000, hohmann_bottleneck=False, reward_function=None):
+    def __init__(self, GM=1.0, r0=None, v0=1.0, dt=0.01, max_steps=5000, reward_function=None):
         """
         Args:
             GM: Gravitational constant (float).
@@ -29,35 +29,9 @@ class OrbitalEnvironment:
         self.vy = np.sqrt(self.GM / self.init_r)
         self.cumm = 0.0
         self.max_steps = max_steps
-        self.reward_function = reward_function or self.default_reward
-        self.hohmann_bottleneck = hohmann_bottleneck
-        if self.hohmann_bottleneck:
-            self.bottleneck_step = self._calculate_bottleneck_timestep(1.0)
-        else:
-            self.bottleneck_step = max_steps
-        
         self.current_step = 0
+        self.reward_function = reward_function or self.default_reward
         self.reset()
-
-    def _calculate_bottleneck_timestep(self, target_r):
-        """
-        Calculates the adaptive bottleneck timestep based on the Hohmann transfer time.
-        Args:
-            target_r: Target radius (float), typically 1.0 for the stable orbit.
-
-        Returns:
-            bottleneck_step: Number of timesteps before applying the bottleneck condition (int).
-        """
-        # Semi-major axis of the transfer orbit
-        a = (self.init_r + target_r) / 2
-        
-        # Time for half of the Hohmann transfer orbit
-        hohmann_time = np.pi * np.sqrt(((self.init_r + target_r)**3) / (8 * self.GM))
-        
-        # Convert time into timesteps and apply a 1.25x margin
-        bottleneck_timestep = int(1.25 * (hohmann_time / self.dt))
-        
-        return bottleneck_timestep
 
     def reset(self):
         """
@@ -70,13 +44,9 @@ class OrbitalEnvironment:
         self.vy = np.sqrt(self.GM / self.init_r)
         self.cumm = 0.0
         self.current_step = 0
-        if self.hohmann_bottleneck:
-            self.bottleneck_step = self._calculate_bottleneck_timestep(1.0)
-        else:
-            self.bottleneck_step = self.max_steps
         state = np.array([self.x, self.y, self.vx, self.vy])
         return state
-
+    
     def step(self, action):
         """
         Advances the environment state by one timestep based on the provided action (tangential thrust).
@@ -127,9 +97,7 @@ class OrbitalEnvironment:
         reward = self.reward_function(action[1])
         
         # Check if the episode is done
-        done = dist > 5.0 or dist < 0.1 or \
-               self.current_step >= self.max_steps or \
-               (abs(1-dist) > 0.05 and self.current_step >= self.bottleneck_step)
+        done = dist > 5.0 or dist < 0.1 or self.current_step >= self.max_steps
         self.current_step += 1
         
         return state, reward, done
@@ -141,8 +109,8 @@ class OrbitalEnvironment:
         Returns: Reward value (float).
         """
         r = np.sqrt(self.x**2 + self.y**2)
-        reward = np.exp(- 100*(r - 1.0)**2)
-        action_penalty = np.exp(- 100*action**2)
+        reward = np.exp(- (r - 1.0)**2)
+        action_penalty = np.exp(- action**2)
         return reward * action_penalty
     
     def set_initial_orbit(self, radius):
@@ -156,19 +124,17 @@ class OrbitalEnvironment:
         self.vy = np.sqrt(self.GM / radius)
 
 class OrbitalEnvWrapper(gym.Env):
-    def __init__(self, r0=None, max_steps=5000, bottleneck_step=5000, reward_function=None):
+    def __init__(self, r0=None, reward_function=None):
         """
         Args:
             r0: Initial orbital radius (float). If None, a random value is generated.
-            max_steps: Maximum number of simulation steps (int).
-            bottleneck_step: Number of simulation steps after which if the radial error is sufficiently large the episode is ended.
             reward_function: Optional custom reward function.
         
         Returns:
             None. Initializes the environment and action/observation spaces.
         """
         super(OrbitalEnvWrapper, self).__init__()
-        self.env = OrbitalEnvironment(r0=r0, max_steps=max_steps, bottleneck_step=bottleneck_step, reward_function=reward_function)
+        self.env = OrbitalEnvironment(r0=r0, reward_function=reward_function)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(8,), dtype=np.float32)
         self.state = None
@@ -230,4 +196,3 @@ class OrbitalEnvWrapper(gym.Env):
         specific_energy = 0.5 * (vx**2 + vy**2) - self.env.GM / r
         angular_momentum = r * v_tangential
         return np.array([1 - r, v_radial, v_tangential, initial_r, timestep, flag, specific_energy, angular_momentum])
-
