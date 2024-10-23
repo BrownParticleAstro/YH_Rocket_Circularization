@@ -9,7 +9,8 @@ from model import create_model
 class SaveBest(BaseCallback):
     def __init__(self, save_path, verbose=0):
         super(SaveBest, self).__init__(verbose)
-        self.save_path = save_path
+        self.save_path = os.path.join(save_path, 'training')  # Create a "training" folder
+        os.makedirs(self.save_path, exist_ok=True)  # Ensure the folder exists
         self.episode_data = []
         self.best_mean_reward = -float('inf')
         self.episode_num = 0  # Track episode number for saving
@@ -24,6 +25,9 @@ class SaveBest(BaseCallback):
         action = self.locals["actions"]  # Actions taken at this step
         timestep = self.num_timesteps  # Current timestep
 
+        # Ensure the action is stored as 1D by squeezing out any extra dimensions
+        action = np.squeeze(action)
+
         # Append relevant data
         self.episode_data.append((*state, timestep, action))
 
@@ -31,7 +35,7 @@ class SaveBest(BaseCallback):
         done = self.locals["dones"][0]
         if done:
             # Save the current episode data
-            #self.save_episode_data(self.episode_data, self.episode_num)
+            self.save_episode_data(self.episode_data, self.episode_num)
             self.episode_num += 1
             self.episode_data = []  # Reset episode data for the next episode
 
@@ -41,14 +45,14 @@ class SaveBest(BaseCallback):
         """
         Saves the current episode data to a file.
         """
-        # Save the current episode data to a .npz file
+        # Save the current episode data to a .npz file, ensuring each array is properly dimensioned
         np.savez(os.path.join(self.save_path, f'episode_{episode_num}.npz'), 
                  x=np.array([step[0] for step in episode_data]), 
                  y=np.array([step[1] for step in episode_data]),
                  vx=np.array([step[2] for step in episode_data]),
                  vy=np.array([step[3] for step in episode_data]),
                  timestep=np.array([step[4] for step in episode_data]),
-                 action=np.array([step[5] for step in episode_data]))
+                 action=np.array([step[5] for step in episode_data]))  # Ensure actions are saved without extra dimensions
 
 
 """
