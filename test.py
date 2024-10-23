@@ -25,7 +25,7 @@ def test_model(env, model_path, model_save_path, episode_num):
     timestep = 0  # Initialize a manual timestep tracker
 
     while not done:
-        action, _ = model.predict(obs)
+        action, _ = model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
         
         # Collect the raw state variables from the environment
@@ -49,5 +49,3 @@ def test_model(env, model_path, model_save_path, episode_num):
              action=np.array([step[5] for step in episode_data]))
 
     print(f"Test episode {episode_num} completed and saved in {test_data_dir}")
-
-

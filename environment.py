@@ -109,8 +109,10 @@ class OrbitalEnvironment:
         Returns: Reward value (float).
         """
         r = np.sqrt(self.x**2 + self.y**2)
-        reward = np.exp(- (r - 1.0)**2)
+        reward = np.exp(-10*(r - 1.0)**2)
         action_penalty = np.exp(- action**2)
+        #print(f"reward: {10*(r - 1.0)}")
+        #print(f"action_penalty: {action}")
         return reward * action_penalty
     
     def set_initial_orbit(self, radius):
@@ -136,32 +138,64 @@ class OrbitalEnvWrapper(gym.Env):
         super(OrbitalEnvWrapper, self).__init__()
         self.env = OrbitalEnvironment(r0=r0, reward_function=reward_function)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(8,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(10,), dtype=np.float32)
         self.state = None
         self.episode_data = []
+        self.prev_r_err = None
+        self.integral_r_err = 0.0
 
     def reset(self):
         """
         Resets the environment to the initial state and clears episode data.
-        Returns: Initial observation (numpy array) after conversion by `_convert_state()`.
+        Returns: Initial observation (numpy array) after conversion by _convert_state().
         """
         self.episode_data = []
         self.state = self.env.reset()
-        return self._convert_state(self.state)
+        self.prev_r_err = None
+        self.integral_r_err = 0.0
+        d_r_err = 0.0
+        r = np.sqrt(self.state[0]**2 + self.state[1]**2)
+        r_err = 1 - r
+
+        return self._convert_state(self.state, d_r_err, self.integral_r_err)
     
     def step(self, action):
         """
         Performs one step in the environment using the provided action.
         Args: action: Tangential thrust action (float).
-        
+
         Returns:
             Tuple of (observation, reward, done, info):
             - observation: Next state (numpy array).
             - reward: Reward from the current step (float).
             - done: Whether the episode has finished (boolean).
-            - info: Additional info dictionary (empty).
+            - info: Additional info dictionary containing the state.
         """
+        # Step through the environment
         self.state, reward, done = self.env.step(action)
+        
+        # Compute radial error, derivative, and integral error terms
+        r = np.sqrt(self.state[0]**2 + self.state[1]**2)
+        r_err = 1 - r
+        if self.prev_r_err is None:
+            d_r_err = 0.0
+        else:
+            d_r_err = (r_err - self.prev_r_err) / self.env.dt
+
+        expected_err = max(abs(self.env.init_r - 1), 1e-2)
+        self.integral_r_err += (r_err / expected_err) * self.env.dt * (1/10)
+        self.prev_r_err = r_err
+
+        # Compute penalties for reward modification
+        d_r_err_penalty = 1.0 
+        if (r > 1 and d_r_err > 0) or (r < 1 and d_r_err < 0):
+            d_r_err_penalty = np.exp(-d_r_err**2)
+        #print(f"d_r_err: {d_r_err}")
+        #print(f"abs(self.integral_r_err): {abs(self.integral_r_err)}")
+        integral_r_err_penalty = np.exp(-abs(self.integral_r_err))
+        reward *= d_r_err_penalty * integral_r_err_penalty
+
+        # Save episode data
         self.episode_data.append([
             self.state[0],  # x
             self.state[1],  # y
@@ -170,7 +204,14 @@ class OrbitalEnvWrapper(gym.Env):
             reward,         # reward
             action[0]       # action
         ])
-        return self._convert_state(self.state), reward, done, {}
+
+        # Create the info dictionary including the state
+        info = {
+            "state": (self.state[0], self.state[1], self.state[2], self.state[3])  # x, y, vx, vy
+        }
+        
+        # Return the observation, reward, done, and info
+        return self._convert_state(self.state, d_r_err, self.integral_r_err), reward, done, info
     
     def get_episode_data(self):
         """
@@ -178,13 +219,15 @@ class OrbitalEnvWrapper(gym.Env):
         """
         return self.episode_data
     
-    def _convert_state(self, state):
+    def _convert_state(self, state, d_r_err, integral_r_err):
         """
         Converts the raw state into a processed observation for the RL model.
         Args: state: Raw state (numpy array [x, y, vx, vy]).
+              d_r_err: Derivative of radial error.
+              integral_r_err: Integral of radial error.
         
         Returns:
-            Processed observation (numpy array [1 - r, v_radial, v_tangential, initial_r, timestep, flag, specific_energy, angular_momentum]).
+            Processed observation (numpy array [1 - r, v_radial, v_tangential, initial_r, timestep, flag, specific_energy, angular_momentum, d_r_err, integral_r_err]).
         """
         x, y, vx, vy = state
         r = np.sqrt(x**2 + y**2)
@@ -195,5 +238,5 @@ class OrbitalEnvWrapper(gym.Env):
         flag = 1.0 if np.abs(r - 1.0) < 0.01 else 0.0
         specific_energy = 0.5 * (vx**2 + vy**2) - self.env.GM / r
         angular_momentum = r * v_tangential
-        return np.array([1 - r, v_radial, v_tangential, initial_r, timestep, flag, specific_energy, angular_momentum])
 
+        return np.array([1 - r, v_radial, v_tangential, initial_r, timestep, flag, specific_energy, angular_momentum, d_r_err, integral_r_err])
