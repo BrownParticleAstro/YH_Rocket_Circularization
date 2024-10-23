@@ -6,12 +6,11 @@ from model import create_model
 from train import train_model
 from test import test_model
 
-save_dir = './models'
-
 # Create the training environment
 env_train = OrbitalEnvWrapper(r0=1.0)
 
 # Train the model
+save_dir = './models'
 model, model_save_path = train_model(env_train, save_dir, total_timesteps=10_000)  # 700k for any, 1m for r0=1.0
 
 # Load the trained model for inference and testing
