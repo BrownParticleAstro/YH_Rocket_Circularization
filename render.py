@@ -57,15 +57,6 @@ class Renderer:
         # Store the state to render at each step
         self.state = np.stack([x, y, vx, vy], axis=1)
 
-    def register_figure(self, fig_name, generator_function):
-        """
-        Registers a new figure generation function.
-        Args:
-            fig_name: Name to identify the figure (str).
-            generator_function: Function to generate the figure (callable).
-        """
-        self.fig_generators[fig_name] = generator_function
-
     def render(self, episode_num=1, fig_name="combined", interval=1, filter_func=None, data_type="testing"):
         """
         Renders the animation for the specified figure type.
