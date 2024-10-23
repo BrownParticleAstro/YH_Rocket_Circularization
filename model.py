@@ -51,8 +51,18 @@ def create_model(env, policy_kwargs=None):
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs=dict(),
+            net_arch=[dict(pi=[32, 32, 32, 32], vf=[32, 32, 32, 32])],
+            activation_fn=nn.ReLU,
+        )
+    return PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1, learning_rate=3e-4, n_steps=2048, batch_size=64, ent_coef=0.01, gamma=0.9994)
+
+""" Initializes untrained network of specified structure for PPO training. """
+def create_model(env, policy_kwargs=None):
+    if policy_kwargs is None:
+        policy_kwargs = dict(
+            features_extractor_class=CustomFeatureExtractor,
+            features_extractor_kwargs=dict(),
             net_arch=[dict(pi=[64, 32], vf=[64, 32])],
             activation_fn=nn.ReLU,
         )
-    return PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1, learning_rate=3e-4, n_steps=2048, batch_size=64, ent_coef=0.01, gamma=0.999)
-
+    return PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1, learning_rate=3e-4, n_steps=2048, batch_size=64, ent_coef=0.01, gamma=0.9994)

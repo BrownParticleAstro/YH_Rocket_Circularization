@@ -2,15 +2,16 @@ import os
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
+from matplotlib import animation
 from matplotlib.lines import Line2D
+from matplotlib.patches import Circle
 from matplotlib.gridspec import GridSpec
 
 # Renderer is responsible for dynamically rendering the episode data from the test phase using matplotlib.
 class Renderer:
     def __init__(self, model_save_path):
         """
-        Args: model_save_path: Path where the test episode data is stored (str).
+        Args: model_save_path: Path where the episode data is stored (str).
         Returns: None. Initializes internal state and figure handles.
         """
         self.model_save_path = model_save_path
@@ -28,14 +29,16 @@ class Renderer:
         self.orbit_circles = []
         self.state = None
 
-    def load_data(self, episode_num):
+    def load_data(self, episode_num, data_type="testing"):
         """
         Loads the state, action, and timestep data from a storage file.
-        Args: episode_num: Episode number to load (int).
+        Args: 
+            episode_num: Episode number to load (int).
+            data_type: Folder from which to load data ('testing' or 'training') (str, optional).
         Returns: None. Updates internal state variables with loaded data.
         """
-        test_data_dir = os.path.join(self.model_save_path, "testing")
-        filepath = os.path.join(test_data_dir, f'episode_{episode_num}.npz')
+        data_dir = os.path.join(self.model_save_path, data_type)
+        filepath = os.path.join(data_dir, f'episode_{episode_num}.npz')
         data = np.load(filepath)
         
         x = data['x']
@@ -56,124 +59,146 @@ class Renderer:
         # Store the state to render at each step
         self.state = np.stack([x, y, vx, vy], axis=1)
 
-    def render(self, mode='human', episode_num=1):
+    def render(self, episode_num=1, interval=1, filter_func=None, data_type="testing"):
         """
-        Dynamically renders the episode data, including the spaceship's position, velocity, and thrust over time.
+        Generates and saves the animation of the episode data, including the spaceship's position, velocity, and thrust over time.
+        Only includes every `interval`-th frame.
+        
         Args:
-            mode: Render mode. Default is 'human' (str).
-            episode_num: Episode number to render (int).
+            episode_num: Episode number to render (int). This is ignored if filter_func is provided.
+            interval: Frame processing interval. Only every `interval`-th frame will be processed into the animation (int).
+            filter_func: A callable that takes an episode number and returns a boolean. If provided, episodes where this function 
+                        returns True will be rendered. If None, the provided episode_num will be used (function, optional).
+            data_type: Folder from which to load data ('testing' or 'training') (str, optional).
 
         Returns:
-            None. Updates the plot dynamically.
+            None. Saves the animation for each selected episode.
         """
-        matplotlib.use('TkAgg')
-        plt.ion()
+        # Get list of episode numbers from the specified folder (testing or training)
+        data_dir = os.path.join(self.model_save_path, data_type)
+        episode_files = [f for f in os.listdir(data_dir) if f.startswith('episode_') and f.endswith('.npz')]
 
-        if self.state is None:
-            self.load_data(episode_num)
+        # Extract episode numbers from filenames
+        episode_numbers = [int(f.split('_')[1].split('.')[0]) for f in episode_files]
 
-        x, y, vx, vy = self.state[0]
-        r = np.sqrt(x**2 + y**2)
-        v_radial = (x * vx + y * vy) / r
-        v_tangential = (x * vy - y * vx) / r
+        # Apply filter_func if provided
+        if filter_func is not None:
+            episode_numbers = list(filter(filter_func, episode_numbers))
+        else:
+            # Use only the provided episode_num if no filter_func is given
+            episode_numbers = [episode_num]
 
-        # Update radius and action histories
-        if self.fig is None:
-            self.fig = plt.figure(figsize=(10, 6))
-            gs = GridSpec(2, 2, width_ratios=[1, 2], height_ratios=[1, 1], figure=self.fig)
-            self.ax_radius = self.fig.add_subplot(gs[0, 0])
-            self.ax_action = self.fig.add_subplot(gs[1, 0])
-            self.ax_orbit = self.fig.add_subplot(gs[:, 1])
+        # Render each episode that satisfies the filter condition
+        for ep_num in episode_numbers:
+            print(f"Rendering episode {ep_num} from {data_type} data...")
+            # Load the data for the current episode from the specified folder
+            self.load_data(ep_num, data_type)
 
-            # Initialize static plot elements (star and orbit)
-            self.star_plot, = self.ax_orbit.plot(0, 0, marker='*', markersize=15, color='red', label='Star (0,0)')
-            
-            # Add circles at integer radii with weaker color
-            max_radius = 5
-            for radius in range(1, max_radius + 1):
-                circle = Circle((0, 0), radius, color=(0.5, 0.5, 0.5, 0.5), fill=False, linestyle='--')
-                self.orbit_circles.append(circle)
-                self.ax_orbit.add_artist(circle)
+            if self.fig is None:
+                self.fig = plt.figure(figsize=(10, 6))
+                gs = plt.GridSpec(2, 2, width_ratios=[1, 2], height_ratios=[1, 1], figure=self.fig)
+                self.ax_radius = self.fig.add_subplot(gs[0, 0])
+                self.ax_action = self.fig.add_subplot(gs[1, 0])
+                self.ax_orbit = self.fig.add_subplot(gs[:, 1])
 
-            # Initialize dynamic plot elements
-            self.spaceship_plot, = self.ax_orbit.plot([], [], marker='o', markersize=10, color='blue')
-            self.velocity_arrow = self.ax_orbit.arrow(0, 0, 0, 0, head_width=0.05, head_length=0.1, fc='green', ec='green')
-            self.thrust_arrow = None
-            plt.ion()
+                # Initialize static plot elements (star and orbit)
+                self.star_plot, = self.ax_orbit.plot(0, 0, marker='*', markersize=15, color='red', label='Star (0,0)')
+                
+                # Add circles at integer radii with weaker color
+                max_radius = 5
+                for radius in range(1, max_radius + 1):
+                    circle = Circle((0, 0), radius, color=(0.5, 0.5, 0.5, 0.5), fill=False, linestyle='--')
+                    self.orbit_circles.append(circle)
+                    self.ax_orbit.add_artist(circle)
 
-        # Update the spaceship and velocity arrow dynamically for each timestep
-        for timestep_idx in range(len(self.timestep_history)):
-            x, y, vx, vy = self.state[timestep_idx]
-            r = self.radius_history[timestep_idx]
-            action = self.action_history[timestep_idx]
-            action = action.item() if isinstance(action, np.ndarray) else action
+                # Initialize dynamic plot elements
+                self.spaceship_plot, = self.ax_orbit.plot([], [], marker='o', markersize=10, color='blue')
+                self.velocity_arrow = None
+                self.thrust_arrow = None
 
-            # Update velocity arrow
-            if self.velocity_arrow:
-                self.velocity_arrow.remove()
-            self.velocity_arrow = self.ax_orbit.arrow(x, y, vx, vy, head_width=0.05, head_length=0.1, fc='green', ec='green')
+                # Set titles and labels for ax_radius and ax_action
+                self.ax_radius.set_title('Radius Over Time')
+                self.ax_radius.set_xlabel('Timestep')
+                self.ax_radius.set_ylabel('Radius')
 
-            # Update thrust arrow
-            if action is not None:
-                theta = np.arctan2(y, x)
-                ax_x = -np.sin(theta) * action
-                ax_y = np.cos(theta) * action
+                self.ax_action.set_title('Action Over Time')
+                self.ax_action.set_xlabel('Timestep')
+                self.ax_action.set_ylabel('Action')
 
-                if self.thrust_arrow:
-                    self.thrust_arrow.remove()
-                self.thrust_arrow = self.ax_orbit.arrow(x, y, ax_x, ax_y, head_width=0.05, head_length=0.1, fc='orange', ec='orange')
+                # Ensure the orbit plot has equal scaling to prevent circle distortion
+                self.ax_orbit.set_aspect('equal')
+                self.ax_orbit.set_xlim([-max_radius - 1, max_radius + 1])
+                self.ax_orbit.set_ylim([-max_radius - 1, max_radius + 1])
+                self.ax_orbit.set_title('Orbit Over Time')
 
-            # Generate the spaceship label
-            spaceship_label = f'Spaceship \nx: {x:.2f}, y: {y:.2f}, \nr: {r:.3f}, \ntimestep: {timestep_idx}'
-            self.spaceship_plot.set_data([x], [y])
-            self.spaceship_plot.set_label(spaceship_label)
+                def update(timestep_idx):
+                    print(f"timestep_idx: {timestep_idx}")
+                    x, y, vx, vy = self.state[timestep_idx]
+                    r = self.radius_history[timestep_idx]
+                    action = self.action_history[timestep_idx]
+                    action = action.item() if isinstance(action, np.ndarray) else action
+                    timestep = self.timestep_history[timestep_idx]
 
-            # Update legends
-            velocity_legend = Line2D([0], [0], color='green', lw=2,
-                                     label=f'Velocity \nvx: {vx:.2f}, vy: {vy:.2f}, \nv_radial: {v_radial:.2f}, \nv_tangential: {v_tangential:.2f}')
-            orbit_legend = Line2D([0], [0], color='grey', linestyle='--', label='Orbit (r=1)')
-            thrust_legend = Line2D([0], [0], color='orange', lw=2, label=f'Thrust \nax_x: {ax_x:.3f}, ax_y: {ax_y:.3f}')
+                    # Compute v_radial and v_tangential
+                    r = np.sqrt(x**2 + y**2)
+                    v_radial = (x * vx + y * vy) / r
+                    v_tangential = (x * vy - y * vx) / r
 
-            # Prepare handles and labels for the legend
-            handles = [self.star_plot, orbit_legend, self.spaceship_plot, velocity_legend]
-            labels = [h.get_label() for h in handles]
+                    # Update spaceship position
+                    self.spaceship_plot.set_data([x], [y])
 
-            if action is not None:
-                handles.append(thrust_legend)
-                labels.append(thrust_legend.get_label())
+                    # Set spaceship label with x, y, r, and timestep
+                    spaceship_label = f'Spaceship \nx: {x:.2f}, y: {y:.2f}, \nr: {r:.3f}, \ntimestep: {timestep}'
+                    self.spaceship_plot.set_label(spaceship_label)
 
-            self.ax_orbit.legend(handles, labels, loc='upper left', bbox_to_anchor=(1.05, 1), borderaxespad=0.)
+                    # Update velocity arrow
+                    if self.velocity_arrow:
+                        self.velocity_arrow.remove()
+                    self.velocity_arrow = self.ax_orbit.arrow(x, y, vx, vy, head_width=0.05, head_length=0.1, fc='green', ec='green')
 
-            # Adjust plot limits dynamically
-            margin = 0.2
-            new_xlim = [min(x - margin, -1.5), max(x + margin, 1.5)]
-            new_ylim = [min(y - margin, -1.5), max(y + margin, 1.5)]
+                    # Update thrust arrow
+                    if action is not None:
+                        theta = np.arctan2(y, x)
+                        ax_x = -np.sin(theta) * action
+                        ax_y = np.cos(theta) * action
 
-            self.ax_orbit.set_xlim(new_xlim)
-            self.ax_orbit.set_ylim(new_ylim)
-            self.ax_orbit.set_aspect('equal')
+                        if self.thrust_arrow:
+                            self.thrust_arrow.remove()
+                        self.thrust_arrow = self.ax_orbit.arrow(x, y, ax_x, ax_y, head_width=0.05, head_length=0.1, fc='orange', ec='orange')
 
-            # Plot radius over time
-            self.ax_radius.clear()
-            self.ax_radius.plot(self.timestep_history[:timestep_idx+1], self.radius_history[:timestep_idx+1], color='blue')
-            self.ax_radius.set_title('Radius Over Time')
-            self.ax_radius.set_xlabel('Timestep')
-            self.ax_radius.set_ylabel('Radius')
+                    # Dynamically adjust orbit plot limits
+                    arrow_fraction = 0.5
+                    max_x = max(abs(x + arrow_fraction * vx), abs(x + arrow_fraction * ax_x)) + 0.1
+                    max_y = max(abs(y + arrow_fraction * vy), abs(y + arrow_fraction * ax_y)) + 0.1
+                    max_dim = max(max_x, max_y)
+                                
+                    self.ax_orbit.set_xlim([-max_dim, max_dim])
+                    self.ax_orbit.set_ylim([-max_dim, max_dim])
 
-            # Plot action over time
-            self.ax_action.clear()
-            self.ax_action.plot(self.timestep_history[:timestep_idx+1], self.action_history[:timestep_idx+1], color='orange')
-            self.ax_action.set_title('Action Over Time')
-            self.ax_action.set_xlabel('Timestep')
-            self.ax_action.set_ylabel('Action')
+                    # Update radius over time (line plot)
+                    self.ax_radius.clear()
+                    self.ax_radius.plot(self.timestep_history[:timestep_idx+1], self.radius_history[:timestep_idx+1], color='blue')
+                    self.ax_radius.set_title('Radius Over Time')
+                    self.ax_radius.set_xlabel('Timestep')
+                    self.ax_radius.set_ylabel('Radius')
 
-            # Adjust subplot spacing and margins
-            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1, wspace=0.4, hspace=0.3)
-            self.fig.tight_layout()
+                    # Update action over time (line plot)
+                    self.ax_action.clear()
+                    self.ax_action.plot(self.timestep_history[:timestep_idx+1], self.action_history[:timestep_idx+1], color='orange')
+                    self.ax_action.set_title('Action Over Time')
+                    self.ax_action.set_xlabel('Timestep')
+                    self.ax_action.set_ylabel('Action')
 
-            # Draw and pause for dynamic rendering
-            self.fig.canvas.draw()
-            plt.pause(0.1)
+                    plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1, wspace=0.4, hspace=0.3)
+                    self.fig.tight_layout()
+
+            frames_to_use = range(0, len(self.timestep_history), interval)
+            ani = animation.FuncAnimation(self.fig, update, frames=frames_to_use, interval=50, repeat=False)
+
+            animation_save_path = os.path.join(self.model_save_path, data_type, f"episode_{ep_num}_animation_interval_{interval}.mp4")
+            ani.save(animation_save_path, writer='ffmpeg')
+
+            print(f"Animation saved to {animation_save_path} with interval {interval}")
 
     def close(self):
         """
