@@ -173,7 +173,7 @@ class Renderer:
 
             # Draw and pause for dynamic rendering
             self.fig.canvas.draw()
-            plt.pause(0.1)
+            plt.pause(0.00001)
 
     def close(self):
         """
