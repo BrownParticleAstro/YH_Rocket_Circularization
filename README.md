@@ -1,4 +1,4 @@
-# Orbital Simulation Project
+# Orbital Simulation Project 🛰️
 
 This project simulates 2D orbital maneuvers using reinforcement learning (PPO) and includes dynamic visualization, customizable training, and testing setups.
 
