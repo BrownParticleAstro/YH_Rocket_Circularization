@@ -9,13 +9,13 @@ from test import test_model
 save_dir = './models'
 
 # Create the training environment
-env_train = OrbitalEnvWrapper()
+env_train = OrbitalEnvWrapper(r0=1.0)
 
 # Train the model
 model, model_save_path = train_model(env_train, save_dir, total_timesteps=1_000_000)
 
 # Load the trained model for inference and testing
-env_test = OrbitalEnvWrapper()
+env_test = OrbitalEnvWrapper(r0=1.0)
 test_model(env_test, os.path.join(model_save_path, "ppo_orbital_model"), model_save_path, episode_num=1)
 
 # Create a renderer instance using the dynamic model_save_path
