@@ -49,8 +49,9 @@ class OrbitalEnvironment:
     
     def step(self, action):
         """
-        Advances the environment state by one timestep based on the provided action (tangential thrust).
-        Args: action: Tangential thrust value (float).
+        Advances the environment state by one timestep using Runge-Kutta (RK4) integration.
+        Args:
+            action: Tangential thrust value (float).
 
         Returns:
             Tuple of (new state, reward, done):
@@ -59,47 +60,60 @@ class OrbitalEnvironment:
             - done: Boolean indicating whether the simulation is complete.
         """
         action = np.array([0, action[0]])  # Tangential thrust only
+
+        def acceleration(state):
+            """ Helper function to compute the gravitational acceleration. """
+            x, y = state[:2]
+            dist = np.sqrt(x**2 + y**2)
+            rhat = np.array([x, y]) / dist
+            gravitational_acceleration = -self.GM / (dist**2)
+            return gravitational_acceleration * rhat
+
+        # Define RK4 coefficients for position and velocity
         state = np.array([self.x, self.y, self.vx, self.vy])
-        r = state[:2]
-        v = state[2:]
-        
-        dist = np.linalg.norm(r)  # Distance from the center (0,0)
-        rhat = r / dist  # Unit vector in the direction of radius
-        
-        # Rotate thrust vector to align with the radial direction
+
+        # Compute k1
+        k1_v = self.dt * acceleration(state)
+        k1_p = self.dt * np.array([self.vx, self.vy])
+
+        # Compute k2
+        state_mid = state + 0.5 * np.concatenate([k1_p, k1_v])
+        k2_v = self.dt * acceleration(state_mid)
+        k2_p = self.dt * np.array([self.vx + 0.5 * k1_v[0], self.vy + 0.5 * k1_v[1]])
+
+        # Compute k3
+        state_mid = state + 0.5 * np.concatenate([k2_p, k2_v])
+        k3_v = self.dt * acceleration(state_mid)
+        k3_p = self.dt * np.array([self.vx + 0.5 * k2_v[0], self.vy + 0.5 * k2_v[1]])
+
+        # Compute k4
+        state_end = state + np.concatenate([k3_p, k3_v])
+        k4_v = self.dt * acceleration(state_end)
+        k4_p = self.dt * np.array([self.vx + k3_v[0], self.vy + k3_v[1]])
+
+        # Final velocity and position update using RK4 weighted sum
+        self.vx += (k1_v[0] + 2 * k2_v[0] + 2 * k3_v[0] + k4_v[0]) / 6
+        self.vy += (k1_v[1] + 2 * k2_v[1] + 2 * k3_v[1] + k4_v[1]) / 6
+
+        self.x += (k1_p[0] + 2 * k2_p[0] + 2 * k3_p[0] + k4_p[0]) / 6
+        self.y += (k1_p[1] + 2 * k2_p[1] + 2 * k3_p[1] + k4_p[1]) / 6
+
+        # Apply the tangential thrust to the velocity
+        dist = np.sqrt(self.x**2 + self.y**2)
+        rhat = np.array([self.x, self.y]) / dist
         rotation_matrix = np.array([[rhat[0], -rhat[1]], [rhat[1], rhat[0]]])
         thrust = rotation_matrix @ action
+        self.vx += thrust[0] * self.dt
+        self.vy += thrust[1] * self.dt
 
-        dx, dy = thrust
-        self.cumm += np.sqrt(dx**2 + dy**2)
-        
-        # Apply thrust to velocity
-        self.vx += dx * self.dt
-        self.vy += dy * self.dt
-        
-        # Gravitational acceleration based on current distance
-        dist = np.sqrt(self.x**2 + self.y**2)  # Update the distance from center
-        gravitational_acceleration = -self.GM / (dist**2)
-        rhat = np.array([self.x, self.y]) / dist  # Recompute the unit vector in the radial direction
-        acceleration = gravitational_acceleration * rhat  # Gravitational force
-        
-        # Update velocities due to gravitational acceleration
-        self.vx += acceleration[0] * self.dt
-        self.vy += acceleration[1] * self.dt
-        
-        # Update positions
-        self.x += self.vx * self.dt
-        self.y += self.vy * self.dt
-
+        # Update state and calculate reward
         state = np.array([self.x, self.y, self.vx, self.vy])
-        
-        # Calculate reward based on the new state
         reward = self.reward_function(action[1])
-        
+
         # Check if the episode is done
         done = dist > 5.0 or dist < 0.1 or self.current_step >= self.max_steps
         self.current_step += 1
-        
+
         return state, reward, done
     
     def default_reward(self, action):
@@ -183,7 +197,7 @@ class OrbitalEnvWrapper(gym.Env):
             d_r_err = (r_err - self.prev_r_err) / self.env.dt
 
         expected_err = max(abs(self.env.init_r - 1), 1e-2)
-        self.integral_r_err += (r_err / expected_err) * self.env.dt * (1/10)
+        self.integral_r_err += (r_err / expected_err) * self.env.dt
         self.prev_r_err = r_err
 
         # Compute penalties for reward modification
