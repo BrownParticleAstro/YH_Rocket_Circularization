@@ -1,74 +1,89 @@
-# Orbital Simulation Project 🛰️
+# Orbital Simulation Project 🛰️🚀
 
-This project simulates 2D orbital maneuvers using reinforcement learning (PPO) and includes dynamic visualization, customizable training, and testing setups.
+Simulate 2D orbital maneuvers using **Reinforcement Learning (PPO)**, featuring dynamic visualizations, and customizable training and testing setups.
 
-## Overview
+---
 
-The primary goal of this project is to simulate spacecraft orbital control using a reinforcement learning approach, specifically through the use of the PPO algorithm from the `stable-baselines3` library. The simulation focuses on controlling a spacecraft in orbit using prograde and retrograde thrust, with the goal of achieving stable orbits or other predefined objectives.
+## 🌟 Overview
 
-The project provides functionality for:
+The goal of this project is to simulate spacecraft orbital control. The simulation hooks a model of the user's choice up to controlling thrusts from a spacecraft with the goal of achieving stable orbits under minimal fuel cost
 
-- **Training**: Learning optimal control strategies through PPO.
-- **Testing**: Evaluating the performance of trained models.
-- **Rendering**: Visualizing the behavior a different stages of training & testing.
+**Core features include:**
+- **Training**: Learn optimal control strategies with PPO.
+- **Testing**: Evaluate model performance.
+- **Rendering**: Visualize the simulation at various stages.
 
-## File Structure
+---
 
-- **`environment.py`**  
-  Defines the `OrbitalEnv` and `OrbitalEnvWrapper` classes, which handle the simulation of spacecraft orbits, including state transitions, actions (thrust), and reward calculations. The wrapper allows for flexible configuration of the environment parameters.
-  - Adjust physics-related parameters like thrust, gravity, and timestep.
-  - Modify the reward function to encourage different spacecraft behaviors, such as circularizing an orbit, minimizing fuel usage, or maintaining a stable orbit.
+## 📂 Project Structure
 
-- **`model.py`**  
-  Contains the neural network used for the PPO agent, including separate neural networks for processing various features like position, velocity, angular momentum, and energy.
-  - Modify the architecture of the model or feature extractor to process additional inputs or change how orbital states are handled.
-  - Experiment with different neural network configurations to improve learning efficiency for specific tasks.
+### 🛠️ Files & Their Functions
 
-- **`render.py`**  
-  This file handles dynamic rendering of the spacecraft’s trajectory, actions, and other relevant data using `matplotlib`. It provides a flexible system for generating custom visualizations by allowing users to register their own figure generation functions. This system enables the user to extend the rendering functionality beyond the default visualization provided.
+| File Name              | Description                                                                                                                                              |
+|------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`environment.py`**   | Defines `OrbitalEnv` (core functionality) & `OrbitalEnvWrapper` (constructing features out of that x,y core) classes. Adjust simulation physics (e.g., thrust, gravity) and modify the reward functions for custom behaviors. |
+| **`model.py`**         | Contains the neural network architecture. Customize feature extractors and experiment with different configurations for better learning efficiency.       |
+| **`render.py`**        | Handles visualization with `matplotlib`. Register custom figure generation functions for personalized data analysis.                                      |
+| **`run_and_view_episode.py`** | Primary script for running, testing, and visualizing full episodes. Organizes the full pipeline, from loading models to rendering results.                  |
+| **`train.py`**         | Trains the PPO model. Modify hyperparameters (learning rate, gamma, etc.)       |
+| **`test.py`**          | Runs multiple test episodes to evaluate performance. Adjust test settings and load different model weights for comparisons.                                |
 
-  The only implemented figure generator at the moment is `"combined"`, which provides a visualization that includes:
-  - **Radius Over Time**: A line plot that shows the radial distance of the spacecraft from the central body as a function of timesteps.
-  - **Action Over Time**: A line plot showing the magnitude of the actions taken (thrust) over the episode’s timesteps.
-  - **Orbit Plot**: A dynamic plot that shows the spacecraft’s position in 2D space along with its velocity vector and thrust vector at each timestep.
+---
 
-  The `"combined"` figure provides an overall view of the spacecraft’s orbit, actions, and trajectory over time, making it useful for analyzing the agent's decision-making and performance in the environment.
+## 🎯 Customization Options
 
-  Users can add new custom figures by defining their own figure generation function and registering it in the `Renderer` class. This allows for specialized visualizations based on different aspects of the simulation.
+### ⚙️ Adapt the Project By:
+- **Modifying Environment Dynamics**: Adjust thrust, gravity, or the reward structure for varied orbital challenges.
+- **Customizing Neural Network Architecture**: Tweak the `create_model` function for different PPO policy structures.
+- **Optimizing Training Setup**: Change PPO hyperparameters for better training outcomes.
+- **Expanding Visualization**: Create new visual plots for deeper performance insights.
 
-- **`run_and_view_episode.py`**  
-  A utility to run and visualize a single episode of the simulation. Useful for debugging or exploring the behavior of the trained model in specific scenarios.
-  - Adjust the environment or model for targeted test runs.
-  - Visualize different aspects of the spacecraft’s behavior during an episode (e.g., focus on velocity or thrust patterns).
+---
 
-- **`train.py`**  
-  This script trains the PPO model using `stable-baselines3` in the `OrbitalEnvWrapper` environment. The training process includes saving the best model based on average episode reward.
-  - Modify training hyperparameters such as learning rate, gamma, or the total number of timesteps.
-  - Switch between different reward functions to encourage varied spacecraft control strategies.
-  - Customize the `SaveBest` callback to adjust what data is saved during training and how performance is tracked.
+## 🖼️ Visualizations & Rendering
 
-- **`test.py`**  
-  This script tests a trained PPO model by running multiple episodes in the environment and saving the results for later analysis.
-  - Adjust the number of episodes to run during testing.
-  - Load different model weights to compare the performance of various training runs.gi
+**Default Visualization (`"combined"`) Includes:**
+- **Radius Over Time** 📈: Line plot showing radial distance over timesteps.
+- **Action Over Time** 🔧: Line plot depicting thrust actions taken at each step.
+- **Orbit Plot** 🌌: 2D plot showing the spacecraft’s position with velocity and thrust vectors.
 
-This project is highly flexible and can be adapted to explore different orbital control strategies by modifying:
+### 🛠️ How to Add Custom Visualizations:
+1. **Create** a figure generation function.
+2. **Register** it in the `Renderer` class.
+3. **Call** the function when rendering.
 
-- **Environment dynamics**: You can adjust the thrust capabilities, gravity model, or reward structure to create different orbital challenges for the agent to solve.
-- **Neural network architecture**: Modify the `create_model` function to explore different architectures for processing orbital states or handling the PPO policy.
-- **Training setup**: Adjust PPO hyperparameters like the learning rate, gamma, or number of timesteps to optimize the training process.
-- **Visualization**: Create new plots and visualizations for analyzing the agent's performance.
+---
 
-## Example Usage
+## 🚀 Example Usage
 
-### Training
+### 🔄 Training
+Run `train.py`:
+```bash
+python train.py
+```
+*Modifies model configurations, saves trained data to a specified path.*
 
-Train the model by creating the training environment and calling the `train_model` function. The trained model and data will be saved to a specified directory.
+### 🧪 Testing
+Run `test.py`:
+```bash
+python test.py --model_path /path/to/model
+```
+*Load trained models, run tests, and save results for analysis.*
 
-### Testing
+### 🎬 Running and Visualizing Full Episodes
+Run `run_and_view_episode.py` as the primary script to execute, test, and visualize episodes:
+```bash
+python run_and_view_episode.py --model_path /path/to/model --episode_id 1
+```
+*This script loads models, runs episodes, and generates visual outputs.*
 
-Load the trained model and test it in the environment. Test results will be saved for further analysis.
+### 📊 Rendering
+Use `render.py`:
+```bash
+python render.py --model_path /path/to/model --episode_id 1
+```
+*Visualize selected episodes, add custom plots as needed.*
 
-### Rendering
+---
 
-Create a renderer instance using the trained model's save path and render specific episodes from the training or testing data. Custom figure generation is supported by registering new figure generators in the `Renderer` class.
+Enjoy experimenting with the orbital environment, and feel free to adapt this project to meet your research or educational needs! 🌍✨
