@@ -24,12 +24,13 @@ class SaveBest(BaseCallback):
         info = self.locals["infos"][0]  # Assuming single environment
         state = info["state"]  # Assuming 'state' contains (x, y, vx, vy)
         action = self.locals["actions"]  # Actions taken at this step
+        reward = self.locals["rewards"][0]  # Capture the reward at this step
 
         # Ensure the action is stored as 1D by squeezing out any extra dimensions
         action = np.squeeze(action)
 
         # Append relevant data with the current step in the episode
-        self.episode_data.append((*state, self.episode_step, action))
+        self.episode_data.append((*state, self.episode_step, action, reward))
 
         # Increment the step counter for the current episode
         self.episode_step += 1
@@ -56,7 +57,8 @@ class SaveBest(BaseCallback):
                  vx=np.array([step[2] for step in episode_data]),
                  vy=np.array([step[3] for step in episode_data]),
                  episode_step=np.array([step[4] for step in episode_data]),  # Save the step within the episode
-                 action=np.array([step[5] for step in episode_data]))  # Ensure actions are saved without extra dimensions
+                 action=np.array([step[5] for step in episode_data]),  # Ensure actions are saved without extra dimensions
+                 reward=np.array([step[6] for step in episode_data]))  # Save rewards
 
 """
     Train the model in "env" environment for X number of timesteps with Y reward threshold to stop training

@@ -26,7 +26,6 @@ def test_model(env, model_path, model_save_path, episode_num):
 
     while not done:
         action, _ = model.predict(obs, deterministic=True)
-        #action = [0.0] # IF WANTING TO OBSERVE RAW ERROR
         obs, reward, done, info = env.step(action)
         
         # Collect the raw state variables from the environment
@@ -35,8 +34,8 @@ def test_model(env, model_path, model_save_path, episode_num):
         vx = env.state[2]
         vy = env.state[3]
         
-        # Append the state and action data for this timestep
-        episode_data.append([x, y, vx, vy, timestep, action])
+        # Append the state, action, and reward data for this timestep
+        episode_data.append([x, y, vx, vy, timestep, action, reward])
         
         timestep += 1  # Increment the manual timestep counter
 
@@ -47,6 +46,7 @@ def test_model(env, model_path, model_save_path, episode_num):
              vx=np.array([step[2] for step in episode_data]),
              vy=np.array([step[3] for step in episode_data]),
              episode_step=np.array([step[4] for step in episode_data]),
-             action=np.array([step[5] for step in episode_data]))
+             action=np.array([step[5] for step in episode_data]),
+             reward=np.array([step[6] for step in episode_data]))
 
     print(f"Test episode {episode_num} completed and saved in {test_data_dir}")

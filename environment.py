@@ -147,7 +147,7 @@ class OrbitalEnvWrapper(gym.Env):
         super(OrbitalEnvWrapper, self).__init__()
         self.env = OrbitalEnvironment(r0=r0, reward_function=reward_function)
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(10,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(9,), dtype=np.float32)
         self.state = None
         self.episode_data = []
         self.prev_r_err = None
@@ -195,6 +195,9 @@ class OrbitalEnvWrapper(gym.Env):
         expected_err = max(abs(self.env.init_r - 1), 1e-2)
         self.integral_r_err += (r_err / expected_err) * self.env.dt
         self.prev_r_err = r_err
+
+        self.integral_r_err *= 50
+        d_r_err *= 50
 
         # Compute penalties for reward modification
         d_r_err_penalty = 1.0 
@@ -253,7 +256,6 @@ class OrbitalEnvWrapper(gym.Env):
                         v_radial,            # Radial velocity
                         v_tangential,        # Tangential velocity
                         initial_r,           # Starting radius
-                        timestep,            # Steps into episode
                         flag,                # Flag of if at one of the Hohmann thrust points
                         specific_energy,     # KE + PE
                         angular_momentum,    # Rotational momentum
