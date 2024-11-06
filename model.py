@@ -43,7 +43,10 @@ class CustomFeatureExtractor(BaseFeaturesExtractor):
         pos_vel_features = self.pos_vel_net(pos_vel)
         angular_features = self.angular_momentum_net(angular_momentum)
         energy_features = self.specific_energy_net(specific_energy)
-        return torch.cat([pos_vel_features, angular_features, energy_features], dim=1)
+        return torch.cat([pos_vel_features,  # Position/velocity features
+                        angular_features,    # Angular momentum features
+                        energy_features],    # KE + PE
+                        dim=1)
 
 """ Initializes untrained network of specified structure for PPO training. """
 def create_model(env, policy_kwargs=None):
@@ -51,18 +54,17 @@ def create_model(env, policy_kwargs=None):
         policy_kwargs = dict(
             features_extractor_class=CustomFeatureExtractor,
             features_extractor_kwargs=dict(),
-            net_arch=[dict(pi=[32, 32, 32, 32], vf=[32, 32, 32, 32])],
+            net_arch=[dict(pi=[64, 32],     # Actor newtork (aka the policy)
+                           vf=[64, 32])],   # Critic network (aka the value function)
             activation_fn=nn.ReLU,
         )
-    return PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1, learning_rate=3e-4, n_steps=2048, batch_size=64, ent_coef=0.01, gamma=0.9994)
-
-""" Initializes untrained network of specified structure for PPO training. """
-def create_model(env, policy_kwargs=None):
-    if policy_kwargs is None:
-        policy_kwargs = dict(
-            features_extractor_class=CustomFeatureExtractor,
-            features_extractor_kwargs=dict(),
-            net_arch=[dict(pi=[64, 32], vf=[64, 32])],
-            activation_fn=nn.ReLU,
-        )
-    return PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1, learning_rate=3e-4, n_steps=2048, batch_size=64, ent_coef=0.01, gamma=0.9994)
+    return PPO("MlpPolicy",                 # Policy type, 2 layers of 64 neurons
+               env,                         # Environment
+               policy_kwargs=policy_kwargs,
+               verbose=1,                   
+               learning_rate=3e-4,          # Learning rate
+               n_steps=2048,                # num of steps before policy update
+               batch_size=64,               # num of samples per policy update calculation
+               ent_coef=0.01,               # factor to encourage randomness of policy (aka exploration)
+               gamma=0.9994                 # far-sighted consideration of long term reward
+               )

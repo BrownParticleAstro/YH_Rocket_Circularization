@@ -69,24 +69,20 @@ class OrbitalEnvironment:
             gravitational_acceleration = -self.GM / (dist**2)
             return gravitational_acceleration * rhat
 
-        # Define RK4 coefficients for position and velocity
+        # RK4 position update
         state = np.array([self.x, self.y, self.vx, self.vy])
 
-        # Compute k1
         k1_v = self.dt * acceleration(state)
         k1_p = self.dt * np.array([self.vx, self.vy])
 
-        # Compute k2
         state_mid = state + 0.5 * np.concatenate([k1_p, k1_v])
         k2_v = self.dt * acceleration(state_mid)
         k2_p = self.dt * np.array([self.vx + 0.5 * k1_v[0], self.vy + 0.5 * k1_v[1]])
 
-        # Compute k3
         state_mid = state + 0.5 * np.concatenate([k2_p, k2_v])
         k3_v = self.dt * acceleration(state_mid)
         k3_p = self.dt * np.array([self.vx + 0.5 * k2_v[0], self.vy + 0.5 * k2_v[1]])
 
-        # Compute k4
         state_end = state + np.concatenate([k3_p, k3_v])
         k4_v = self.dt * acceleration(state_end)
         k4_p = self.dt * np.array([self.vx + k3_v[0], self.vy + k3_v[1]])
@@ -123,10 +119,9 @@ class OrbitalEnvironment:
         Returns: Reward value (float).
         """
         r = np.sqrt(self.x**2 + self.y**2)
-        reward = np.exp(-10*(r - 1.0)**2)
+        r_err = r - 1.0
+        reward = np.exp(-r_err**2)
         action_penalty = np.exp(- action**2)
-        #print(f"reward: {10*(r - 1.0)}")
-        #print(f"action_penalty: {action}")
         return reward * action_penalty
     
     def set_initial_orbit(self, radius):
@@ -190,7 +185,8 @@ class OrbitalEnvWrapper(gym.Env):
         
         # Compute radial error, derivative, and integral error terms
         r = np.sqrt(self.state[0]**2 + self.state[1]**2)
-        r_err = 1 - r
+        #r_err = r - 1.0 if r - 1.0 > 0.001 else 0.0
+        r_err = 1 - 1.0
         if self.prev_r_err is None:
             d_r_err = 0.0
         else:
@@ -253,4 +249,14 @@ class OrbitalEnvWrapper(gym.Env):
         specific_energy = 0.5 * (vx**2 + vy**2) - self.env.GM / r
         angular_momentum = r * v_tangential
 
-        return np.array([1 - r, v_radial, v_tangential, initial_r, timestep, flag, specific_energy, angular_momentum, d_r_err, integral_r_err])
+        return np.array([1 - r,              # Radius error
+                        v_radial,            # Radial velocity
+                        v_tangential,        # Tangential velocity
+                        initial_r,           # Starting radius
+                        timestep,            # Steps into episode
+                        flag,                # Flag of if at one of the Hohmann thrust points
+                        specific_energy,     # KE + PE
+                        angular_momentum,    # Rotational momentum
+                        d_r_err,             # Change in Radial error
+                        integral_r_err       # Cumulative Radial error
+                        ])
