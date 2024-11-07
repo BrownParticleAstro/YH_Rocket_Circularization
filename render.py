@@ -46,6 +46,9 @@ class Renderer:
         actions = data['action']
         timesteps = data['episode_step']
         rewards = data['reward']
+        r_err_norm = data['r_err_norm']
+        d_r_err_norm = data['d_r_err_norm']
+        int_r_err_norm = data['int_r_err_norm']
         
         # Compute the radius from x and y values
         radius = np.sqrt(x**2 + y**2)
@@ -55,6 +58,9 @@ class Renderer:
         self.action_history = actions
         self.timestep_history = timesteps
         self.reward_history = rewards
+        self.r_err_norm_history = r_err_norm
+        self.d_r_err_norm_history = d_r_err_norm
+        self.int_r_err_norm_history = int_r_err_norm
         
         # Store the state to render at each step
         self.state = np.stack([x, y, vx, vy], axis=1)
@@ -96,6 +102,97 @@ class Renderer:
             episode_num: Episode number being rendered (int).
             data_type: Folder from which to load data ('testing' or 'training') (str, optional).
         """
+
+        # Update function for animation, defined first to be used by FuncAnimation
+        def update(timestep_idx):
+            # Print current timestep index for debugging
+            print(f"timestep_idx: {timestep_idx}")
+
+            # Retrieve data for the current timestep
+            x, y, vx, vy = self.state[timestep_idx]
+            r = self.radius_history[timestep_idx]
+            action = self.action_history[timestep_idx]
+            reward = self.reward_history[timestep_idx]
+            timestep = self.timestep_history[timestep_idx]
+            r_err = self.r_err_norm_history[timestep_idx]
+            d_r_err = self.d_r_err_norm_history[timestep_idx]
+            int_r_err = self.int_r_err_norm_history[timestep_idx]
+
+            action = float(action) if isinstance(action, np.ndarray) else action
+
+            # Compute radial and tangential velocities
+            v_radial = (x * vx + y * vy) / r
+            v_tangential = (x * vy - y * vx) / r
+
+            # Update orbit path with a gradient effect
+            if timestep_idx > 0:
+                segments = np.array([self.state[i:i+2, :2] for i in range(timestep_idx)])
+                lc = LineCollection(segments, cmap='Blues', linewidth=2)
+                lc.set_array(np.linspace(0.1, 1.0, len(segments)))
+                self.ax_orbit.add_collection(lc)
+
+            # Update spaceship position in orbit plot
+            self.spaceship_plot.set_data([x], [y])
+
+            # Set spaceship label with updated position and timestep info
+            spaceship_label = f'Spaceship \nx: {x:.2f}, y: {y:.2f}, \nr: {r:.3f}, \nt: {timestep}'
+            self.spaceship_plot.set_label(spaceship_label)
+
+            # Update velocity arrow
+            if self.velocity_arrow:
+                self.velocity_arrow.remove()
+            self.velocity_arrow = self.ax_orbit.arrow(x, y, vx, vy, head_width=0.05, head_length=0.1, fc='green', ec='green')
+            velocity_label = f'Velocity \nvx: {vx:.2f}, vy: {vy:.2f}, \nv_rad: {v_radial:.2f}, \nv_tan: {v_tangential:.2f}'
+
+            # Update thrust arrow based on action
+            if action is not None:
+                theta = np.arctan2(y, x)
+                ax_x = -np.sin(theta) * action
+                ax_y = np.cos(theta) * action
+
+                # Ensure ax_x and ax_y are scalars
+                ax_x = float(ax_x)
+                ax_y = float(ax_y)
+
+                if self.thrust_arrow:
+                    self.thrust_arrow.remove()
+                self.thrust_arrow = self.ax_orbit.arrow(x, y, ax_x, ax_y, head_width=0.05, head_length=0.1, fc='orange', ec='orange')
+                thrust_label = f'Thrust \ntx: {ax_x:.2f}, ty: {ax_y:.2f}'
+
+            # Update radius plot
+            self.ax_radius.clear()
+            self.ax_radius.plot(self.timestep_history[:timestep_idx+1], self.radius_history[:timestep_idx+1], color='blue')
+            self.ax_radius.set_title('Radius Over Time')
+            self.ax_radius.set_xlabel('Timestep')
+            self.ax_radius.set_ylabel('Radius')
+
+            # Update action plot
+            self.ax_action.clear()
+            self.ax_action.plot(self.timestep_history[:timestep_idx+1], self.action_history[:timestep_idx+1], color='orange')
+            self.ax_action.set_title('Action Over Time')
+            self.ax_action.set_xlabel('Timestep')
+            self.ax_action.set_ylabel('Action')
+
+            # Update reward plot
+            self.ax_reward.clear()
+            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.reward_history[:timestep_idx+1], color='green', label=f'Reward ({reward:.2f})')
+            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.r_err_norm_history[:timestep_idx+1], color='blue', alpha=0.5, label=f'r_err ({r_err:.2f})')
+            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.d_r_err_norm_history[:timestep_idx+1], color='red', alpha=0.5, label=f'd_r_err ({d_r_err:.2f})')
+            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.int_r_err_norm_history[:timestep_idx+1], alpha=0.5, color='purple', label=f'int_r_err ({int_r_err:.2f})')
+            self.ax_reward.set_title('Reward and Error Factors Over Time')
+            self.ax_reward.set_xlabel('Timestep')
+            self.ax_reward.set_ylabel('Value')
+            self.ax_reward.legend(fontsize='small', loc='upper right')
+
+            # Update legend in orbit plot
+            self.ax_orbit.legend([self.spaceship_plot, self.velocity_arrow, self.thrust_arrow], 
+                                     [spaceship_label, velocity_label, thrust_label], loc='upper right')
+
+            # Adjust spacing
+            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1, wspace=0.4, hspace=0.3)
+            self.fig.tight_layout()
+
+        # Set up figure and axes if not already created
         if self.fig is None:
             self.fig = plt.figure(figsize=(12, 8))
             gs = plt.GridSpec(3, 2, width_ratios=[1, 2], height_ratios=[1, 1, 1], figure=self.fig)
@@ -104,27 +201,27 @@ class Renderer:
             self.ax_reward = self.fig.add_subplot(gs[2, 0])
             self.ax_orbit = self.fig.add_subplot(gs[:, 1])
 
-            # Plot a static star at the center
+            # Plot a static star at the center in the orbit plot
             self.ax_orbit.plot(0, 0, marker='*', markersize=15, color='red', label='Star (0,0)')
-            
-            # Plot orbit circles at integer radii up to 5 with dashed lines
+
+            # Add orbit circles for reference radii
             max_radius = 5
             for radius in range(1, max_radius + 1):
                 circle = Circle((0, 0), radius, color=(0.5, 0.5, 0.5, 0.5), fill=False, linestyle='--')
                 self.ax_orbit.add_artist(circle)
 
-            # Initialize dynamic elements
+            # Initialize spaceship plot, velocity arrow, and thrust arrow placeholders
             self.spaceship_plot, = self.ax_orbit.plot([], [], marker='o', markersize=10, color='blue', label='Spaceship')
             self.velocity_arrow = None
             self.thrust_arrow = None
 
-            # Set plot bounds based on starting position
+            # Set plot limits based on initial radius
             initial_r = self.radius_history[0]
             plot_limit = max(1, initial_r) + 1
             self.ax_orbit.set_xlim([-plot_limit, plot_limit])
             self.ax_orbit.set_ylim([-plot_limit, plot_limit])
 
-            # Titles and labels
+            # Titles and labels for subplots
             self.ax_radius.set_title('Radius Over Time')
             self.ax_radius.set_xlabel('Timestep')
             self.ax_radius.set_ylabel('Radius')
@@ -140,86 +237,21 @@ class Renderer:
             self.ax_orbit.set_aspect('equal')
             self.ax_orbit.set_title('Orbit Over Time')
 
-            def update(timestep_idx):
-                # Print current timestep index for debugging
-                print(f"timestep_idx: {timestep_idx}")
-
-                x, y, vx, vy = self.state[timestep_idx]
-                r = self.radius_history[timestep_idx]
-                action = self.action_history[timestep_idx]
-                reward = self.reward_history[timestep_idx]
-                action = action.item() if isinstance(action, np.ndarray) else action
-                timestep = self.timestep_history[timestep_idx]
-
-                # Compute v_radial and v_tangential
-                v_radial = (x * vx + y * vy) / r
-                v_tangential = (x * vy - y * vx) / r
-
-                # Plot path with gradient effect
-                if timestep_idx > 0:
-                    segments = np.array([self.state[i:i+2, :2] for i in range(timestep_idx)])
-                    lc = LineCollection(segments, cmap='Blues', linewidth=2)
-                    lc.set_array(np.linspace(0.1, 1.0, len(segments)))  # Gradient from light to dark blue
-                    self.ax_orbit.add_collection(lc)
-
-                # Update spaceship position
-                self.spaceship_plot.set_data([x], [y])
-
-                # Set spaceship label with x, y, r, and timestep
-                spaceship_label = f'Spaceship \nx: {x:.2f}, y: {y:.2f}, \nr: {r:.3f}, \nt: {timestep}'
-                self.spaceship_plot.set_label(spaceship_label)
-
-                # Velocity arrow
-                if self.velocity_arrow:
-                    self.velocity_arrow.remove()
-                self.velocity_arrow = self.ax_orbit.arrow(x, y, vx, vy, head_width=0.05, head_length=0.1, fc='green', ec='green')
-                velocity_label = f'Velocity \nvx: {vx:.2f}, vy: {vy:.2f}, \nv_rad: {v_radial:.2f}, \nv_tan: {v_tangential:.2f}'
-
-                # Thrust arrow
-                if action is not None:
-                    theta = np.arctan2(y, x)
-                    ax_x = -np.sin(theta) * action
-                    ax_y = np.cos(theta) * action
-
-                    if self.thrust_arrow:
-                        self.thrust_arrow.remove()
-                    self.thrust_arrow = self.ax_orbit.arrow(x, y, ax_x, ax_y, head_width=0.05, head_length=0.1, fc='orange', ec='orange')
-                    thrust_label = f'Thrust \ntx: {ax_x:.2f}, ty: {ax_y:.2f}'
-
-                # Update radius plot
-                self.ax_radius.clear()
-                self.ax_radius.plot(self.timestep_history[:timestep_idx+1], self.radius_history[:timestep_idx+1], color='blue')
-                self.ax_radius.set_title('Radius Over Time')
-                self.ax_radius.set_xlabel('Timestep')
-                self.ax_radius.set_ylabel('Radius')
-
-                # Update action plot
-                self.ax_action.clear()
-                self.ax_action.plot(self.timestep_history[:timestep_idx+1], self.action_history[:timestep_idx+1], color='orange')
-                self.ax_action.set_title('Action Over Time')
-                self.ax_action.set_xlabel('Timestep')
-                self.ax_action.set_ylabel('Action')
-
-                # Update reward plot
-                self.ax_reward.clear()
-                self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.reward_history[:timestep_idx+1], color='green')
-                self.ax_reward.set_title('Reward Over Time')
-                self.ax_reward.set_xlabel('Timestep')
-                self.ax_reward.set_ylabel('Reward')
-
-                # Re-add the correct legend for velocity and thrust
-                self.ax_orbit.legend([self.spaceship_plot, self.velocity_arrow, self.thrust_arrow], 
-                                     [spaceship_label, velocity_label, thrust_label], loc='upper right')
-
-                plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1, wspace=0.4, hspace=0.3)
-                self.fig.tight_layout()
-
+        # Generate animation using the update function
         frames_to_use = range(0, len(self.timestep_history), interval)
         ani = animation.FuncAnimation(self.fig, update, frames=frames_to_use, interval=50, repeat=False)
 
-        animation_save_path = os.path.join(self.model_save_path, data_type, f"episode_{episode_num}_animation_interval_{interval}.mp4")
-        ani.save(animation_save_path, writer='ffmpeg')
+        # Define the base animation path
+        base_animation_path = os.path.join(self.model_save_path, data_type, f"episode_{episode_num}_animation_interval_{interval}.mp4")
+        animation_save_path = base_animation_path
 
+        # Check for existing file and append a number if necessary
+        count = 1
+        while os.path.exists(animation_save_path):
+            animation_save_path = os.path.join(self.model_save_path, data_type, f"episode_{episode_num}_animation_interval_{interval}_{count}.mp4")
+            count += 1
+
+        ani.save(animation_save_path, writer='ffmpeg')
         print(f"Animation saved to {animation_save_path} with interval {interval}")
 
     def close(self):
