@@ -27,8 +27,8 @@ class OrbitalEnvironment:
         self.x = self.init_r
         self.y = 0.0
         self.vx = 0.0
-        #self.vy = np.sqrt(self.GM / self.init_r)
-        self.vy = 0.0
+        self.vy = np.sqrt(self.GM / self.init_r)
+        #self.vy = 0.0
         self.max_steps = max_steps
         self.current_step = 0
         self.reward_function = reward_function or self.default_reward
@@ -42,8 +42,8 @@ class OrbitalEnvironment:
         self.x = self.init_r if self.enforce_r else np.random.uniform(0.2, 4.0)
         self.y = 0.0
         self.vx = 0.0
-        #self.vy = np.sqrt(self.GM / self.init_r)
-        self.vy = 0.0
+        self.vy = np.sqrt(self.GM / self.init_r)
+        #self.vy = 0.0
         self.current_step = 0
         state = np.array([self.x, self.y, self.vx, self.vy])
         return state
@@ -227,7 +227,6 @@ class OrbitalEnvWrapper(gym.Env):
         int_r_err_norm = self.integral_r_err / (r_expected * max_timesteps_passed)
 
         # Time-dependent penalty factor
-        
         time_factor = t / max_timesteps_passed
 
         # Penalty factors using exponential decay
