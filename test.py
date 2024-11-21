@@ -25,7 +25,8 @@ def test_model(env, model_path, model_save_path, episode_num):
     timestep = 0  # Initialize a manual timestep tracker
 
     while not done:
-        action, _ = model.predict(obs, deterministic=True)
+        #action, _ = model.predict(obs, deterministic=True)
+        action = [0]
         obs, reward, done, info = env.step(action)
         x, y, vx, vy = env.state
         r_err_norm = info['r_err_norm']

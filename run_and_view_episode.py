@@ -7,7 +7,7 @@ from train import train_model
 from test import test_model
 
 # Create the training environment
-env_train = OrbitalEnvWrapper(r0=1.0)
+env_train = OrbitalEnvWrapper()
 
 # Train the model
 save_dir = './models'
@@ -21,4 +21,5 @@ test_model(env_test, os.path.join(model_save_path, "ppo_orbital_model"), model_s
 renderer = Renderer(model_save_path=model_save_path)
 
 # Render the first episode from the training data
-renderer.render(episode_num=1, interval=10, data_type="training")
+renderer.render(episode_num=1, interval=1, data_type="testing")
+env_test.reset()

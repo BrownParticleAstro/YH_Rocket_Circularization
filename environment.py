@@ -27,7 +27,8 @@ class OrbitalEnvironment:
         self.x = self.init_r
         self.y = 0.0
         self.vx = 0.0
-        self.vy = np.sqrt(self.GM / self.init_r)
+        #self.vy = np.sqrt(self.GM / self.init_r)
+        self.vy = 0.0
         self.max_steps = max_steps
         self.current_step = 0
         self.reward_function = reward_function or self.default_reward
@@ -41,7 +42,8 @@ class OrbitalEnvironment:
         self.x = self.init_r if self.enforce_r else np.random.uniform(0.2, 4.0)
         self.y = 0.0
         self.vx = 0.0
-        self.vy = np.sqrt(self.GM / self.init_r)
+        #self.vy = np.sqrt(self.GM / self.init_r)
+        self.vy = 0.0
         self.current_step = 0
         state = np.array([self.x, self.y, self.vx, self.vy])
         return state
@@ -67,31 +69,36 @@ class OrbitalEnvironment:
             dist = np.clip(dist, 1e-5, 5.0)
             rhat = np.array([x, y]) / dist
             return -self.GM / (dist**2) * rhat
-
+        
+        # dr = dt * (-GM / r**2)
         # Current state and RK4 position update
         state = np.array([self.x, self.y, self.vx, self.vy])
 
-        # Calculate the RK4 update steps
+        # RK4 Integration
         k1_v = self.dt * acceleration(state)
-        k1_p = self.dt * np.array([self.vx, self.vy])
+        k1_p = self.dt * state[2:4]
 
         state_mid = state + 0.5 * np.concatenate([k1_p, k1_v])
         k2_v = self.dt * acceleration(state_mid)
-        k2_p = self.dt * np.array([self.vx + 0.5 * k1_v[0], self.vy + 0.5 * k1_v[1]])
+        k2_p = self.dt * state_mid[2:4]
 
+        # Similarly, correct k3_p and k4_p
         state_mid = state + 0.5 * np.concatenate([k2_p, k2_v])
         k3_v = self.dt * acceleration(state_mid)
-        k3_p = self.dt * np.array([self.vx + 0.5 * k2_v[0], self.vy + 0.5 * k2_v[1]])
+        k3_p = self.dt * state_mid[2:4]
 
         state_end = state + np.concatenate([k3_p, k3_v])
         k4_v = self.dt * acceleration(state_end)
-        k4_p = self.dt * np.array([self.vx + k3_v[0], self.vy + k3_v[1]])
+        k4_p = self.dt * state_end[2:4]
 
-        # Update velocity and position using RK4 weighted sum
-        self.vx += (k1_v[0] + 2 * k2_v[0] + 2 * k3_v[0] + k4_v[0]) / 6
-        self.vy += (k1_v[1] + 2 * k2_v[1] + 2 * k3_v[1] + k4_v[1]) / 6
-        self.x += (k1_p[0] + 2 * k2_p[0] + 2 * k3_p[0] + k4_p[0]) / 6
-        self.y += (k1_p[1] + 2 * k2_p[1] + 2 * k3_p[1] + k4_p[1]) / 6
+        # Update position and velocity
+        delta_p = (k1_p + 2 * k2_p + 2 * k3_p + k4_p) / 6
+        delta_v = (k1_v + 2 * k2_v + 2 * k3_v + k4_v) / 6
+
+        self.x += delta_p[0]
+        self.y += delta_p[1]
+        self.vx += delta_v[0]
+        self.vy += delta_v[1]
 
         # Apply the tangential thrust to the velocity
         dist = np.sqrt(self.x**2 + self.y**2)
@@ -273,7 +280,7 @@ class OrbitalEnvWrapper(gym.Env):
         """
         x, y, vx, vy = state
         r = np.sqrt(x**2 + y**2)
-        r = max(r, 1e-5)  # Avoid division by zero
+        r = max(r, 1e-5)          # Avoid division by zero
         v_radial = (x * vx + y * vy) / r
         v_tangential = (x * vy - y * vx) / r
         initial_r = self.env.init_r

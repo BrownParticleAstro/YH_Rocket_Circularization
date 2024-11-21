@@ -90,17 +90,18 @@ class Renderer:
             self.load_data(ep_num, data_type)
 
             if fig_name in self.fig_generators:
-                self.fig_generators[fig_name](interval, ep_num, data_type)
+                self.fig_generators[fig_name](interval, ep_num, data_type, 0.01)
             else:
                 raise ValueError(f"Figure type '{fig_name}' is not registered.")
 
-    def _generate_combined_fig(self, interval, episode_num, data_type):
+    def _generate_combined_fig(self, interval, episode_num, data_type, dt):
         """
         Generates the default combined figure with radius, action, and orbit plots.
         Args:
             interval: Frame processing interval (int).
             episode_num: Episode number being rendered (int).
-            data_type: Folder from which to load data ('testing' or 'training') (str, optional).
+            data_type: Folder from which to load data ('testing' or 'training') (str).
+            dt: Time step size used in the simulation (float).
         """
 
         # Update function for animation, defined first to be used by FuncAnimation
@@ -136,7 +137,6 @@ class Renderer:
 
             # Set spaceship label with updated position and timestep info
             spaceship_label = f'Spaceship \nx: {x:.2f}, y: {y:.2f}, \nr: {r:.3f}, \nt: {timestep}'
-            self.spaceship_plot.set_label(spaceship_label)
 
             # Update velocity arrow
             if self.velocity_arrow:
@@ -159,38 +159,37 @@ class Renderer:
                 self.thrust_arrow = self.ax_orbit.arrow(x, y, ax_x, ax_y, head_width=0.05, head_length=0.1, fc='orange', ec='orange')
                 thrust_label = f'Thrust \ntx: {ax_x:.2f}, ty: {ax_y:.2f}'
 
+            # Compute standard time units for x-axis
+            t_standard = self.timestep_history[:timestep_idx+1] * dt / (2 * np.pi)
+
             # Update radius plot
             self.ax_radius.clear()
-            self.ax_radius.plot(self.timestep_history[:timestep_idx+1], self.radius_history[:timestep_idx+1], color='blue')
+            self.ax_radius.plot(t_standard, self.radius_history[:timestep_idx+1], color='blue')
             self.ax_radius.set_title('Radius Over Time')
-            self.ax_radius.set_xlabel('Timestep')
+            self.ax_radius.set_xlabel(f'Standard Unit={int((2*np.pi)/dt)} timesteps (dt={dt})')
             self.ax_radius.set_ylabel('Radius')
 
             # Update action plot
             self.ax_action.clear()
-            self.ax_action.plot(self.timestep_history[:timestep_idx+1], self.action_history[:timestep_idx+1], color='orange')
+            self.ax_action.plot(t_standard, self.action_history[:timestep_idx+1], color='orange')
             self.ax_action.set_title('Action Over Time')
-            self.ax_action.set_xlabel('Timestep')
+            self.ax_action.set_xlabel(f'Standard Unit={int((2*np.pi)/dt)} timesteps (dt={dt})')
             self.ax_action.set_ylabel('Action')
 
             # Update reward plot
             self.ax_reward.clear()
-            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.reward_history[:timestep_idx+1], color='green', label=f'Reward ({reward:.2f})')
-            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.r_err_norm_history[:timestep_idx+1], color='blue', alpha=0.5, label=f'r_err ({r_err:.2f})')
-            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.d_r_err_norm_history[:timestep_idx+1], color='red', alpha=0.5, label=f'd_r_err ({d_r_err:.2f})')
-            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.int_r_err_norm_history[:timestep_idx+1], alpha=0.5, color='purple', label=f'int_r_err ({int_r_err:.2f})')
+            self.ax_reward.plot(t_standard, self.reward_history[:timestep_idx+1], color='green', label=f'Reward ({reward:.2f})')
+            self.ax_reward.plot(t_standard, self.r_err_norm_history[:timestep_idx+1], color='blue', alpha=0.5, label=f'r_err ({r_err:.2f})')
+            self.ax_reward.plot(t_standard, self.d_r_err_norm_history[:timestep_idx+1], color='red', alpha=0.5, label=f'd_r_err ({d_r_err:.2f})')
+            self.ax_reward.plot(t_standard, self.int_r_err_norm_history[:timestep_idx+1], alpha=0.5, color='purple', label=f'int_r_err ({int_r_err:.2f})')
             self.ax_reward.set_title('Reward and Error Factors Over Time')
-            self.ax_reward.set_xlabel('Timestep')
+            self.ax_reward.set_xlabel(f'Standard Unit={int((2*np.pi)/dt)} timesteps (dt={dt})')
             self.ax_reward.set_ylabel('Value')
             self.ax_reward.legend(fontsize='small', loc='upper right')
 
             # Update legend in orbit plot
             self.ax_orbit.legend([self.spaceship_plot, self.velocity_arrow, self.thrust_arrow], 
-                                     [spaceship_label, velocity_label, thrust_label], loc='upper right')
-
-            # Adjust spacing
-            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1, wspace=0.4, hspace=0.3)
-            self.fig.tight_layout()
+                                    [spaceship_label, velocity_label, thrust_label], loc='upper right')
 
         # Set up figure and axes if not already created
         if self.fig is None:
@@ -223,19 +222,23 @@ class Renderer:
 
             # Titles and labels for subplots
             self.ax_radius.set_title('Radius Over Time')
-            self.ax_radius.set_xlabel('Timestep')
+            self.ax_radius.set_xlabel('Standard Units')
             self.ax_radius.set_ylabel('Radius')
 
             self.ax_action.set_title('Action Over Time')
-            self.ax_action.set_xlabel('Timestep')
+            self.ax_action.set_xlabel('Standard Units')
             self.ax_action.set_ylabel('Action')
 
             self.ax_reward.set_title('Reward Over Time')
-            self.ax_reward.set_xlabel('Timestep')
+            self.ax_reward.set_xlabel('Standard Units')
             self.ax_reward.set_ylabel('Reward')
 
             self.ax_orbit.set_aspect('equal')
             self.ax_orbit.set_title('Orbit Over Time')
+
+            # Finalize layout (only called once)
+            self.fig.tight_layout()
+            self.fig.subplots_adjust(top=0.925, left=0.075)
 
         # Generate animation using the update function
         frames_to_use = range(0, len(self.timestep_history), interval)
