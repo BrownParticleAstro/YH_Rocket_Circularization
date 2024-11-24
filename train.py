@@ -31,7 +31,6 @@ class SaveBest(BaseCallback):
         self.episode_data.append((
             *state, self.episode_step, action, r_err_norm, d_r_err_norm, int_r_err_norm
         ))
-
         self.episode_step += 1
 
         # Check if the episode has finished

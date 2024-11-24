@@ -1,11 +1,13 @@
 import os
 import numpy as np
+import torch as th
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from matplotlib.collections import LineCollection
 from matplotlib.patches import Circle
 from matplotlib.gridspec import GridSpec
+from stable_baselines3 import PPO
 
 # Renderer is responsible for dynamically rendering the episode data from the test phase using matplotlib.
 class Renderer:
@@ -26,6 +28,9 @@ class Renderer:
         self.fig_generators = {
             "combined": self._generate_combined_fig,  # Default combined figure
         }
+
+        self.model = PPO.load(os.path.join(model_save_path, "ppo_orbital_model"))
+        self.policy = self.model.policy
 
     def load_data(self, episode_num, data_type="testing"):
         """
@@ -64,6 +69,126 @@ class Renderer:
         
         # Store the state to render at each step
         self.state = np.stack([x, y, vx, vy], axis=1)
+
+    def render_with_heatmap(self, episode_num=1, interval=50, data_type="testing"):
+        """
+        Render the specified episode with a heatmap of critic values.
+
+        Args:
+            episode_num: Number of the episode to render.
+            interval: Interval between frames in milliseconds.
+            data_type: 'training' or 'testing'
+        """
+        # Load episode data
+        self.load_data(episode_num, data_type)
+
+        x = self.state[:, 0]
+        y = self.state[:, 1]
+        vx = self.state[:, 2]
+        vy = self.state[:, 3]
+
+        # Set up figure and axis for plotting
+        fig, ax = plt.subplots(figsize=(8,8))
+
+        # Generate grid of (x,y) points over the gamespace
+        grid_size = 50
+        x_min, x_max = -5, 5
+        y_min, y_max = -5, 5
+        xx, yy = np.meshgrid(np.linspace(x_min, x_max, grid_size),
+                             np.linspace(y_min, y_max, grid_size))
+
+        # Initialize heatmap
+        heatmap = ax.imshow(np.zeros_like(xx), extent=(x_min, x_max, y_min, y_max),
+                            origin='lower', cmap='viridis', alpha=0.8)
+
+        # Plot the initial spaceship position
+        spaceship_dot, = ax.plot([], [], 'ro')  # Empty initial plot
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
+        fig.colorbar(heatmap, ax=ax)
+
+        # This function will be called for each frame
+        def update(i):
+            # Clear previous arrows
+            for p in ax.patches:
+                p.remove()
+
+            # For timestep i, generate heatmap of critic values over (x,y) space
+            # For each point in the grid, compute the observation
+            vx_i = vx[i]
+            vy_i = vy[i]
+            d_r_err_norm_i = self.d_r_err_norm_history[i]
+            int_r_err_norm_i = self.int_r_err_norm_history[i]
+            initial_r = self.radius_history[0]
+            flag = 0.0  # Adjust this as necessary
+
+            xi_flat = xx.flatten()
+            yi_flat = yy.flatten()
+            r = np.sqrt(xi_flat**2 + yi_flat**2)
+            r = np.clip(r, 1e-5, None)
+            v_radial = (xi_flat * vx_i + yi_flat * vy_i) / r
+            v_tangential = (xi_flat * vy_i - yi_flat * vx_i) / r
+            specific_energy = 0.5 * (vx_i**2 + vy_i**2) - 1.0 / r  # Assume GM=1.0
+            angular_momentum = r * v_tangential
+
+            # Compute scaled_r_err
+            r_err = r - 1.0
+            r_max_err = max(abs(initial_r - 1), 1e-2)
+            scaled_r_err = np.clip((r_err / r_max_err) * 2, -2, 2)
+
+            observations = np.column_stack((
+                scaled_r_err,
+                v_radial,
+                v_tangential,
+                np.full_like(scaled_r_err, 1 - initial_r),
+                np.full_like(scaled_r_err, flag),
+                specific_energy,
+                angular_momentum,
+                np.full_like(scaled_r_err, d_r_err_norm_i),
+                np.full_like(scaled_r_err, int_r_err_norm_i)
+            )).astype(np.float32)
+
+            # Convert observations to torch tensor
+            observations = th.tensor(observations, dtype=th.float32, device=self.model.device)
+
+            # Get critic values for these observations without gradient computation
+            with th.no_grad():
+                values = self.policy.predict_values(observations)
+                actions, _ = self.policy.predict(observations, deterministic=True)
+
+            if isinstance(values, th.Tensor):
+                values = values.cpu().numpy()
+            if isinstance(actions, th.Tensor):
+                actions = actions.cpu().numpy()
+
+            # Reshape values back to grid
+            values_grid = values.reshape(xx.shape)
+
+            # Update heatmap data
+            heatmap.set_data(values_grid)
+            heatmap.set_extent((x_min, x_max, y_min, y_max))
+            heatmap.set_clim(vmin=values_grid.min(), vmax=values_grid.max())
+
+            # Update spaceship position
+            spaceship_dot.set_data([x[i]], [y[i]])
+
+            # Compute action and add arrow
+            action = actions[i].item()  # Convert to scalar
+            thrust_magnitude = 0.5  # Arbitrary scaling factor
+            arrow_dx = thrust_magnitude * np.cos(action)
+            arrow_dy = thrust_magnitude * np.sin(action)
+            arrow = ax.arrow(x[i], y[i], arrow_dx, arrow_dy, color='red', head_width=0.1, head_length=0.2)
+
+            ax.set_title(f'Timestep {i}')
+            return [heatmap, spaceship_dot, arrow]
+
+        frames_to_use = range(0, len(self.timestep_history))
+        ani = animation.FuncAnimation(fig, update, frames=frames_to_use, interval=interval, blit=True)
+
+        # Save animation
+        animation_save_path = os.path.join(self.model_save_path, data_type, f'episode_{episode_num}_heatmap_animation.mp4')
+        ani.save(animation_save_path, writer='ffmpeg')
+        print(f"Animation saved to {animation_save_path} with interval {interval}")
 
     def render(self, episode_num=1, fig_name="combined", interval=1, filter_func=None, data_type="testing"):
         """

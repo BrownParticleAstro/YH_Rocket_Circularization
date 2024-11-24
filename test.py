@@ -3,54 +3,55 @@ import numpy as np
 import os
 
 """ Runs a test episode of the trained model on the environment and saves the results. """
-def test_model(env, model_path, model_save_path, episode_num):
+def test_model(env, model_path, model_save_path, episode_num=1):
     """
+    Load the trained model, run test episodes, collect data, and save it.
+    
     Args:
-        env: Environment to test on (gym.Env).
-        model_path: Path to the trained PPO model (str).
-        model_save_path: Directory to save the test episode data (str).
-        episode_num: Number to identify the episode (int).
-
-    Returns:
-        None. Saves the test episode data to a file.
+        env: The environment to test on.
+        model_path: Path to the saved model.
+        model_save_path: Path where to save the test data.
+        episode_num: Number of episodes to run.
     """
-    # Ensure the directory for saving testing data exists
-    test_data_dir = os.path.join(model_save_path, "testing")
-    os.makedirs(test_data_dir, exist_ok=True)
-
+    # Load the trained model
     model = PPO.load(model_path)
-    obs = env.reset()
-    done = False
-    episode_data = []  # To store the test episode data
-    timestep = 0  # Initialize a manual timestep tracker
-
-    while not done:
-        #action, _ = model.predict(obs, deterministic=True)
-        action = [0]
-        obs, reward, done, info = env.step(action)
-        x, y, vx, vy = env.state
-        r_err_norm = info['r_err_norm']
-        d_r_err_norm = info['d_r_err_norm']
-        int_r_err_norm = info['int_r_err_norm']
-
-        # Append data with new quantities
-        episode_data.append([
-            x, y, vx, vy, timestep, action, reward,
-            r_err_norm, d_r_err_norm, int_r_err_norm
-        ])
-        timestep += 1
-
-    # Save the episode data to the test data directory
-    np.savez(os.path.join(test_data_dir, f'episode_{episode_num}.npz'),
-             x=np.array([step[0] for step in episode_data]),
-             y=np.array([step[1] for step in episode_data]),
-             vx=np.array([step[2] for step in episode_data]),
-             vy=np.array([step[3] for step in episode_data]),
-             episode_step=np.array([step[4] for step in episode_data]),
-             action=np.array([step[5] for step in episode_data]),
-             reward=np.array([step[6] for step in episode_data]),
-             r_err_norm=np.array([step[7] for step in episode_data]),
-             d_r_err_norm=np.array([step[8] for step in episode_data]),
-             int_r_err_norm=np.array([step[9] for step in episode_data]))
-
-    print(f"Test episode {episode_num} completed and saved in {test_data_dir}")
+    
+    # Prepare to save data
+    test_save_path = os.path.join(model_save_path, 'testing')
+    os.makedirs(test_save_path, exist_ok=True)
+    
+    for ep in range(1, episode_num+1):
+        obs = env.reset()
+        done = False
+        episode_data = []
+        step = 0
+        while not done:
+            action, _states = model.predict(obs, deterministic=True)
+            obs, reward, done, info = env.step(action)
+            
+            # Collect data
+            state = info['state']  # (x, y, vx, vy)
+            action_value = action[0]
+            r_err_norm = info.get('r_err_norm', 0)
+            d_r_err_norm = info.get('d_r_err_norm', 0)
+            int_r_err_norm = info.get('int_r_err_norm', 0)
+            
+            episode_data.append((
+                *state, step, action_value, reward, r_err_norm, d_r_err_norm, int_r_err_norm
+            ))
+            
+            step += 1
+            
+        # Save episode data
+        np.savez(os.path.join(test_save_path, f'episode_{ep}.npz'),
+            x=np.array([d[0] for d in episode_data]),
+            y=np.array([d[1] for d in episode_data]),
+            vx=np.array([d[2] for d in episode_data]),
+            vy=np.array([d[3] for d in episode_data]),
+            episode_step=np.array([d[4] for d in episode_data]),
+            action=np.array([d[5] for d in episode_data]),
+            reward=np.array([d[6] for d in episode_data]),
+            r_err_norm=np.array([d[7] for d in episode_data]),
+            d_r_err_norm=np.array([d[8] for d in episode_data]),
+            int_r_err_norm=np.array([d[9] for d in episode_data]))
+    print(f"Test episode(s) completed and saved in {test_save_path}")

@@ -21,5 +21,5 @@ test_model(env_test, os.path.join(model_save_path, "ppo_orbital_model"), model_s
 renderer = Renderer(model_save_path=model_save_path)
 
 # Render the first episode from the training data
-renderer.render(episode_num=1, interval=1, data_type="testing")
+renderer.render_with_heatmap(episode_num=1, interval=50, data_type="testing")
 env_test.reset()
