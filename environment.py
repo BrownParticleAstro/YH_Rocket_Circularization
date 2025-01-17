@@ -2,12 +2,31 @@ import numpy as np
 import gym
 from gym import spaces
 
+from logging import raiseExceptions
+from typing import (
+    Any,
+    Generic,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    Dict,
+    Callable
+)
+
+import random
+
 # OrbitalEnvironment simulates a 2D gravitational orbital system.
 # Takes the gravitational constant (GM), initial radius (r0), initial velocity (v0), time step (dt),
 # maximum simulation steps, and an optional reward function.
 # Outputs the current state after each step (x, y, vx, vy) and reward.
 class OrbitalEnvironment:
-    def __init__(self, GM=1.0, r0=None, v0=1.0, dt=0.01, max_steps=5000, reward_function=None):
+    def __init__(self, GM=1.0, r0=None, v0=1.0, dt=0.01, max_steps=5000, reward_function=None, init_func: Callable[[], np.ndarray]  = None):
         """
         Args:
             GM: Gravitational constant (float).
@@ -20,6 +39,7 @@ class OrbitalEnvironment:
         Returns:
             None. Initializes the orbital environment state.
         """
+        super().__init__()
         self.GM = GM
         self.dt = dt
         self.init_r = r0 if r0 is not None else np.random.uniform(0.2, 4.0)
@@ -31,20 +51,38 @@ class OrbitalEnvironment:
         self.max_steps = max_steps
         self.current_step = 0
         self.reward_function = reward_function or self.default_reward
+        self.init_func = init_func
         self.reset()
 
-    def reset(self):
+    def reset(self, options: Optional[dict] = None):
         """
         Resets the environment to the initial state.
         Returns: Initial state as a numpy array (x, y, vx, vy).
         """
-        self.x = self.init_r if self.enforce_r else np.random.uniform(0.2, 4.0)
-        self.y = 0.0
-        self.vx = 0.0
-        self.vy = np.sqrt(self.GM / self.init_r)
-        self.current_step = 0
-        state = np.array([self.x, self.y, self.vx, self.vy])
+        super().reset(seed=None)    
+        self.current_step = 0        
+        try :
+            if self.init_function is None :
+                raise ValueError("No init function defined")
+            init_state = self.init_func()
+            if not len(init_state) == 4 :
+                print("The default init_function is being used")
+                raise ValueError("The length of the state given by the init_function isn't right")
+            state = np.array(init_state)
+
+        except ValueError as e :
+            self.x = self.init_r if self.enforce_r else np.random.uniform(0.2, 4.0)
+            self.y = 0.0
+            self.vx = 0.0
+            self.vy = np.sqrt(self.GM / self.init_r)
+            state = np.array([self.x, self.y, self.vx, self.vy])
+            
+            init_func = self.init_func
+            state = np.array(init_func())
+    
         return state
+    
+    
     
     def step(self, action):
         """
@@ -70,6 +108,10 @@ class OrbitalEnvironment:
 
         # Current state and RK4 position update
         state = np.array([self.x, self.y, self.vx, self.vy])
+        info = dict()
+        info['max_step_reached'] = False
+        info['out_of_bounds'] = False 
+        done = info['max_step_reached'] or info['out_of_bounds']
 
         # Calculate the RK4 update steps
         k1_v = self.dt * acceleration(state)
@@ -107,10 +149,12 @@ class OrbitalEnvironment:
         reward = self.reward_function(action[1])
 
         # Check if the episode is done
-        done = dist > 5.0 or dist < 0.1 or self.current_step >= self.max_steps
+        info["max_step_reached"] = self.current_step >= self.max_steps
+        info["out_of_bounds"] = dist > 5.0 or dist < 0.1 
+        done = info["max_step_reached"] or info["out_of_bounds"]
         self.current_step += 1
 
-        return state, reward, done
+        return state, reward, done, info
 
     def default_reward(self, action):
         """
@@ -172,8 +216,9 @@ class OrbitalEnvWrapper(gym.Env):
             - done: Whether the episode has finished (boolean).
             - info: Additional info dictionary containing the state.
         """
-        self.state, base_reward, done = self.env.step(action)
-
+        info = dict()
+        self.state, base_reward, done,info_1 = self.env.step(action)
+        info["max_step_reached"] = info_1["max_step_reached"]
         # Extract state variables
         x, y, vx, vy = self.state[0], self.state[1], self.state[2], self.state[3]
         r = np.sqrt(x**2 + y**2)
@@ -247,12 +292,11 @@ class OrbitalEnvWrapper(gym.Env):
         ])
 
         # Info dictionary
-        info = {
-            "state": (x, y, vx, vy),
-            "r_err_norm": r_err_norm,
-            "d_r_err_norm": d_r_err_norm,
-            "int_r_err_norm": int_r_err_norm
-        }
+        info["state"] = (x, y, vx, vy)
+        info["r_err_norm"] = r_err_norm
+        info["d_r_err_norm"] = d_r_err_norm
+        info["int_r_err_norm"] = int_r_err_norm
+        
 
         # Prepare next observation
         observation = self._convert_state(self.state, d_r_err_norm, int_r_err_norm)
