@@ -39,7 +39,6 @@ class OrbitalEnvironment:
         Returns:
             None. Initializes the orbital environment state.
         """
-        super().__init__()
         self.GM = GM
         self.dt = dt
         self.init_r = r0 if r0 is not None else np.random.uniform(0.2, 4.0)
@@ -59,29 +58,35 @@ class OrbitalEnvironment:
         Resets the environment to the initial state.
         Returns: Initial state as a numpy array (x, y, vx, vy).
         """
-        super().reset(seed=None)    
-        self.current_step = 0        
-        try :
-            if self.init_function is None :
-                raise ValueError("No init function defined")
-            init_state = self.init_func()
-            if not len(init_state) == 4 :
-                print("The default init_function is being used")
-                raise ValueError("The length of the state given by the init_function isn't right")
-            state = np.array(init_state)
+        self.current_step = 0
+        
+        # Ensure naming is consistent: let's pick 'init_func' everywhere
+        if self.init_func is None:
+            # No user-defined function: use default
+            return self._default_init_state()
 
-        except ValueError as e :
-            self.x = self.init_r if self.enforce_r else np.random.uniform(0.2, 4.0)
-            self.y = 0.0
-            self.vx = 0.0
-            self.vy = np.sqrt(self.GM / self.init_r)
-            state = np.array([self.x, self.y, self.vx, self.vy])
+        try:
+            init_state = self.init_func()
+            if len(init_state) != 4:
+                print("The default init_function is being used.")
+                raise ValueError("The length of the state given by init_func isn't 4.")
             
-            init_func = self.init_func
-            state = np.array(init_func())
-    
-        return state
-    
+            state = np.array(init_state)
+            return state
+
+        except ValueError as e:
+            # Fallback to default if any error occurs (either missing function or wrong dimension)
+            print(f"Error in user-defined init_func: {str(e)}")
+            return self._default_init_state()
+
+
+    def _default_init_state(self):
+        self.x = self.init_r if self.enforce_r else np.random.uniform(0.2, 4.0)
+        self.y = 0.0
+        self.vx = 0.0
+        self.vy = np.sqrt(self.GM / self.init_r)
+        return np.array([self.x, self.y, self.vx, self.vy])
+
     
     
     def step(self, action):
