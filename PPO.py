@@ -154,7 +154,7 @@ class PPO_v1 :
     def select_action(self, state) : 
         with torch.no_grad(): 
             state = torch.FloatTensor(state).to(device)
-            action, action_logprob, state_val = self.policy_old.act(state, min, max)
+            action, action_logprob, state_val = self.policy_old.act(state)
         self.buffer.states.append(state)
         self.buffer.actions.append(action)
         self.buffer.logprobs.append(action_logprob)
@@ -176,13 +176,10 @@ class PPO_v1 :
 
         for reward, max_step_done, ep_done in zip(reversed(self.buffer.rewards),reversed(self.buffer.max_step_done),reversed(self.buffer.ep_done)) : 
             if ep_done: 
-                
                 if max_step_done : 
-                    max_step_reached = True
                     discounted_reward = reward * (self.gamma**800 - 1)/(self.gamma -1)
                     base_reward = reward
                 else : 
-                    max_step_reached = False
                     base_reward = 0 
                     discounted_reward = 0
                 

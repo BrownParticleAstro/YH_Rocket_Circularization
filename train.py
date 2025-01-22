@@ -4,6 +4,7 @@ import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 from model import create_model
+from PPO import PPO_v1
 
 # SaveBest is a custom callback that saves the best model during training based on average episode reward.
 class SaveBest(BaseCallback):
@@ -48,6 +49,7 @@ class SaveBest(BaseCallback):
         """
         Saves the current episode data to a file.
         """
+        # SCARRED THE INFORMATION ABOUT THE EPISODE IS NOT GOING TO BE SAVED LIKE THAT CAUSE I ADDED THE ADITIONAL INFORMATION
         # Save the current episode data to a .npz file, ensuring each array is properly dimensioned
         np.savez(os.path.join(self.save_path, f'episode_{episode_num}.npz'),
                 x=np.array([step[0] for step in episode_data]),
@@ -88,3 +90,93 @@ def train_model(env, save_dir, total_timesteps=10_000):
 
     print(f"Training completed. Model and data saved in {model_save_path}")
     return model, model_save_path
+
+def train_PPO_model(env , save_dir,
+                    gamma =0.99, lr_actor = 2e-4,lr_critic = 5e-3
+        , max_training_timesteps = 10000
+        , update_timestep = 1600, K_epochs = 80 ): 
+    
+    ################## PPO hyper parameters #################
+    state_dim = 9
+    action_dim = 1 
+    lr_actor = lr_actor
+    lr_critic = lr_critic 
+    gamma = gamma
+    K_epochs = K_epochs
+    eps_clip = 0.2
+    action_std_init = 0.6 
+
+    ################### Training model parameters ############
+    max_ep_len  = 800 # defined in the environment as 800 for now
+    max_training_timesteps = max_training_timesteps
+    save_dir = save_dir
+    update_timestep = update_timestep
+    action_std_decay_freq =  90000 # action_std decay frequency (in num timesteps)
+    action_std_decay_rate = 0.05        # linearly decay action_std (action_std = action_std - action_std_decay_rate)
+    min_action_std = 0.1                # minimum action_std (stop decay after action_std <= min_action_std)
+    save_model_freq = max_ep_len * 2          # save model frequency (in num timesteps)
+
+    
+    ################### Training procedure #####################
+    
+    ppo_agent = PPO_v1(state_dim,action_dim,lr_actor,lr_critic,gamma,K_epochs,eps_clip,action_std_init)
+
+    ## Saving Directory 
+    model_name = f"PPO_{datetime.datetime.now().strftime('%H-%M-%S-_%d-%m-%Y')}"
+    model_save_dir = os.path.join(save_dir, model_name)
+    os.makedirs(save_dir, exist_ok=True)
+    os.makedirs(model_save_dir, exist_ok= True)
+
+    model_file_path = os.path.join(model_save_dir, "ppo_orbital_model.pth")
+
+
+    
+    ### Entering the trainig loop 
+    time_step = 0 
+    current_update_timestep = 0 
+    update = False
+    rewards = []
+    lengths = []
+    current_ep_reward = 0 
+
+    while time_step <= max_training_timesteps : 
+        state = env.reset()
+        current_ep_reward = 0 
+        done = False
+        av_lengths = 0
+        while not done :
+            action = ppo_agent.select_action(state)
+            state, reward, done, info = env.step(action)
+            max_step_reached = info["max_step_reached"]
+           
+            ppo_agent.buffer.rewards.append(reward)
+            ppo_agent.buffer.max_step_done.append(max_step_reached)
+            ppo_agent.buffer.ep_done.append(done)
+
+            time_step +=1  
+            current_update_timestep +=1
+            current_ep_reward += reward
+            av_lengths +=1
+
+            if current_update_timestep == update_timestep :
+                update = True 
+            if update and (done) : 
+                ppo_agent.update()
+                update = False 
+                current_update_timestep =0
+            
+            if time_step % action_std_decay_freq == 0:
+                ppo_agent.decay_action_std(action_std_decay_rate,min_action_std)
+
+            if time_step % save_model_freq == 0:
+                print("--------------------------------------------------------------------------------------------")
+                print("saving model at : " + model_file_path)
+                ppo_agent.save(model_file_path)
+                print("model saved")
+
+        rewards.append(current_ep_reward)
+        lengths.append(av_lengths)
+    print(rewards)
+    env.close()   
+    
+    return model_save_dir, model_file_path

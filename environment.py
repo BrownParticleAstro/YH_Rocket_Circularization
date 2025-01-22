@@ -26,7 +26,7 @@ import random
 # maximum simulation steps, and an optional reward function.
 # Outputs the current state after each step (x, y, vx, vy) and reward.
 class OrbitalEnvironment:
-    def __init__(self, GM=1.0, r0=None, v0=1.0, dt=0.01, max_steps=5000, reward_function=None, init_func: Callable[[], np.ndarray]  = None):
+    def __init__(self, GM=1.0, r0=None, v0=1.0, dt=0.01, max_steps=800, reward_function=None, init_func: Callable[[], np.ndarray]  = None):
         """
         Args:
             GM: Gravitational constant (float).
@@ -223,7 +223,6 @@ class OrbitalEnvWrapper(gym.Env):
         """
         info = dict()
         self.state, base_reward, done,info_1 = self.env.step(action)
-        info["max_step_reached"] = info_1["max_step_reached"]
         # Extract state variables
         x, y, vx, vy = self.state[0], self.state[1], self.state[2], self.state[3]
         r = np.sqrt(x**2 + y**2)
@@ -301,6 +300,8 @@ class OrbitalEnvWrapper(gym.Env):
         info["r_err_norm"] = r_err_norm
         info["d_r_err_norm"] = d_r_err_norm
         info["int_r_err_norm"] = int_r_err_norm
+        info["max_step_reached"] = info_1["max_step_reached"]
+
         
 
         # Prepare next observation
