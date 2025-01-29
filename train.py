@@ -129,8 +129,6 @@ def train_PPO_model(env , save_dir,
 
     model_file_path = os.path.join(model_save_dir, "ppo_orbital_model.pth")
 
-
-    
     ### Entering the trainig loop 
     time_step = 0 
     current_update_timestep = 0 
