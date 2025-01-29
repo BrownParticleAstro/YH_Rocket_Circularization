@@ -19,14 +19,16 @@ The goal of this project is to simulate spacecraft orbital control. The simulati
 
 ### 🛠️ Files & Their Functions
 
-| File Name              | Description                                                                                                                                              |
+| **File Name**              | **Description**                                                                                                                                              |
 |------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **`environment.py`**   | Defines `OrbitalEnv` (core functionality) & `OrbitalEnvWrapper` (constructing features out of that x,y core) classes. Adjust simulation physics (e.g., thrust, gravity) and modify the reward functions for custom behaviors. |
 | **`model.py`**         | Contains the neural network architecture. Customize feature extractors and experiment with different configurations for better learning efficiency.       |
 | **`render.py`**        | Handles visualization with `matplotlib`. Register custom figure generation functions for personalized data analysis.                                      |
 | **`run_and_view_episode.py`** | Primary script for running, testing, and visualizing full episodes. Organizes the full pipeline, from loading models to rendering results.                  |
-| **`train.py`**         | Trains the PPO model. Modify hyperparameters (learning rate, gamma, etc.)       |
-| **`test.py`**          | Runs multiple test episodes to evaluate performance. Adjust test settings and load different model weights for comparisons.                                |
+| **`train.py`**         | Trains the PPO model. Two different functions can be used: `train_model` trains a **Stable-Baselines PPO model**, while `train_PPO_model` trains the **internal instance of PPO**. Modify hyperparameters (learning rate, gamma, etc.). |
+| **`test.py`**          | Runs multiple test episodes to evaluate performance. Two different functions can be used: `test_model` tests a **Stable-Baselines PPO model**, while `test_PPO` tests the **internal instance of PPO**. Adjust test settings and load different model weights for comparisons. |
+| **`PPO.py`**           | Example of a compatible internal PPO model. This model is **not fine-tuned**, so it does not achieve strong performance even after training, but it is fully compatible with the environment. |
+| **`run_and_view_PPO_v1.py`** | Provides the necessary script to **train, test, and render** episodes using the **internal PPO model**. |                            |
 
 ---
 
@@ -75,6 +77,7 @@ Run `run_and_view_episode.py` as the primary script to execute, test, and visual
 ```bash
 python run_and_view_episode.py --model_path /path/to/model --episode_id 1
 ```
+**Or alternatively run_and_view_episode_PPOv_1 for an internal model**
 *This script loads models, runs episodes, and generates visual outputs.*
 
 ### 📊 Rendering
