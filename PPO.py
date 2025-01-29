@@ -67,12 +67,7 @@ class ActorCritic(nn.Module):
                     )
     
     def set_action_std(self, new_action_std):
-        if self.has_continuous_action_space:
-            self.action_var = torch.full((self.action_dim,), new_action_std * new_action_std).to(device)
-        else:
-            print("--------------------------------------------------------------------------------------------")
-            print("WARNING : Calling ActorCritic::set_action_std() on discrete action space policy")
-            print("--------------------------------------------------------------------------------------------")
+        self.action_var = torch.full((self.action_dim,), new_action_std * new_action_std).to(device)
 
     def act(self, state): 
         """"
@@ -127,14 +122,11 @@ class PPO_v1 :
         self.MseLoss = nn.MSELoss() # Loss used for the critic 
         
     def set_action_std(self, new_action_std):
-        if self.has_continuous_action_space:
+        
             self.action_std = new_action_std
             self.policy.set_action_std(new_action_std)
             self.policy_old.set_action_std(new_action_std)
-        else:
-            print("--------------------------------------------------------------------------------------------")
-            print("WARNING : Calling PPO::set_action_std() on discrete action space policy")
-            print("--------------------------------------------------------------------------------------------")
+       
 
     def decay_action_std(self, action_std_decay_rate, min_action_std):
         '''
