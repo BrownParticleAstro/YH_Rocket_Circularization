@@ -1,262 +1,237 @@
 import os
 import numpy as np
-import matplotlib
+import torch
 import matplotlib.pyplot as plt
-from matplotlib import animation
-from matplotlib.collections import LineCollection
 from matplotlib.patches import Circle
-from matplotlib.gridspec import GridSpec
+import imageio
+from environment import OrbitalEnvironment
+from model import PolicyNetwork
 
-# Renderer is responsible for dynamically rendering the episode data from the test phase using matplotlib.
+plt.style.use('./rose-pine-dawn.mplstyle')
+
 class Renderer:
+    """
+    Handles the rendering of post-training evaluation plots and animations.
+    It takes a trained model and generates insightful visualizations of its performance.
+    """
     def __init__(self, model_save_path):
         """
-        Args: model_save_path: Path where the episode data is stored (str).
-        Returns: None. Initializes internal state and figure handles.
+        Initializes the Renderer.
+
+        Args:
+            model_save_path (str): Path where evaluation outputs (plots, GIFs) will be stored.
         """
         self.model_save_path = model_save_path
-        self.radius_history = []
-        self.action_history = []
-        self.timestep_history = []
-        self.reward_history = []
-        self.fig = None
-        self.state = None
+        os.makedirs(self.model_save_path, exist_ok=True)
 
-        # Dictionary to store figure generation functions by name
-        self.fig_generators = {
-            "combined": self._generate_combined_fig,  # Default combined figure
-        }
+    def render_episode_to_gif(self, policy_net, obs_normalizer, env_prototype, filename, device='cpu', fps=30):
+        """
+        Renders multiple episodes from uniformly spaced initial radii and saves them as a single GIF.
+        This provides a good qualitative sense of the policy's general behavior across a wide range of starting conditions.
 
-    def load_data(self, episode_num, data_type="testing"):
-        """
-        Loads the state, action, reward, and timestep data from a storage file.
-        Args: 
-            episode_num: Episode number to load (int).
-            data_type: Folder from which to load data ('testing' or 'training') (str, optional).
-        Returns: None. Updates internal state variables with loaded data.
-        """
-        data_dir = os.path.join(self.model_save_path, data_type)
-        filepath = os.path.join(data_dir, f'episode_{episode_num}.npz')
-        data = np.load(filepath)
-        
-        x = data['x']
-        y = data['y']
-        vx = data['vx']
-        vy = data['vy']
-        actions = data['action']
-        timesteps = data['episode_step']
-        rewards = data['reward']
-        r_err_norm = data['r_err_norm']
-        d_r_err_norm = data['d_r_err_norm']
-        int_r_err_norm = data['int_r_err_norm']
-        
-        # Compute the radius from x and y values
-        radius = np.sqrt(x**2 + y**2)
-        
-        # Store the data for rendering
-        self.radius_history = radius
-        self.action_history = actions
-        self.timestep_history = timesteps
-        self.reward_history = rewards
-        self.r_err_norm_history = r_err_norm
-        self.d_r_err_norm_history = d_r_err_norm
-        self.int_r_err_norm_history = int_r_err_norm
-        
-        # Store the state to render at each step
-        self.state = np.stack([x, y, vx, vy], axis=1)
-
-    def render(self, episode_num=1, fig_name="combined", interval=1, filter_func=None, data_type="testing"):
-        """
-        Renders the animation for the specified figure type.
         Args:
-            episode_num: Episode number to render (int).
-            fig_name: The name of the figure configuration to use (str).
-            interval: Frame processing interval. Only every interval-th frame will be processed into the animation (int).
-            filter_func: A callable that takes an episode number and returns a boolean. If provided, episodes where this function 
-                         returns True will be rendered. If None, the provided episode_num will be used (function, optional).
-            data_type: Folder from which to load data ('testing' or 'training') (str, optional).
+            policy_net (PolicyNetwork): The trained policy network.
+            obs_normalizer (ObservationNormalizer): The trained observation normalizer.
+            env_prototype (OrbitalEnvironment): A sample environment to get parameters like max_steps.
+            filename (str): The full path to save the output GIF file.
+            device (str): The device ('cpu' or 'cuda') to run the simulation on.
+            fps (int): Frames per second for the output GIF.
         """
-        data_dir = os.path.join(self.model_save_path, data_type)
-        episode_files = [f for f in os.listdir(data_dir) if f.startswith('episode_') and f.endswith('.npz')]
-        episode_numbers = [int(f.split('_')[1].split('.')[0]) for f in episode_files]
+        print(f"🎬 Generating GIF from diverse initial radii: {filename}...")
+        num_render_envs = 10 # Number of trajectories to show in the GIF
+        colors = plt.cm.viridis(np.linspace(0, 1, num_render_envs))
+        gif_env = OrbitalEnvironment(num_envs=num_render_envs, max_steps=env_prototype.max_steps, sim_device=device)
 
-        if filter_func is not None:
-            episode_numbers = list(filter(filter_func, episode_numbers))
-        else:
-            episode_numbers = [episode_num]
+        # --- FIX START: Manually set initial states for diverse starting radii ---
 
-        for ep_num in episode_numbers:
-            print(f"Rendering episode {ep_num} from {data_type} data...")
-            self.load_data(ep_num, data_type)
+        # 1. Reset the environment to initialize all internal states (like episode counters, integrals, etc.)
+        gif_env.reset()
 
-            if fig_name in self.fig_generators:
-                self.fig_generators[fig_name](interval, ep_num, data_type)
-            else:
-                raise ValueError(f"Figure type '{fig_name}' is not registered.")
+        # 2. Create a tensor of uniformly spaced initial radii across the desired range.
+        initial_radii = torch.linspace(0.2, 4.0, num_render_envs, device=device)
 
-    def _generate_combined_fig(self, interval, episode_num, data_type):
+        # 3. Manually overwrite the position and velocity to create circular orbits at these new radii.
+        gif_env.x = initial_radii
+        gif_env.y.zero_() # Start on the x-axis
+        gif_env.vx.zero_()
+        # v = sqrt(GM/r) for a circular orbit
+        gif_env.vy = torch.sqrt(gif_env.GM / torch.clamp(initial_radii, min=1e-6))
+
+        # 4. Re-calculate the initial observation based on this new manually-set state.
+        #    This is crucial because the policy network needs the correct starting observation.
+        #    We also reset the PID-related 'previous' state trackers.
+        r, vr, _, apo, ecc = gif_env._get_raw_state()
+        gif_env.prev_r, gif_env.prev_v_radial, gif_env.prev_eccentricity = r.clone(), vr.clone(), ecc.clone()
+        gif_env.previous_r_error = torch.abs(r - 1.0)
+        obs = gif_env._get_observation()
+
+        # --- FIX END ---
+
+        frames = []
+        # Initialize trajectory logging from the new starting positions
+        trajectories = [[(gif_env.x[i].item(), gif_env.y[i].item())] for i in range(num_render_envs)]
+        dones = torch.zeros(num_render_envs, dtype=torch.bool, device=device)
+
+        for step in range(gif_env.max_steps):
+            # --- Create a single frame for the GIF ---
+            plt.figure(figsize=(8, 8))
+            # Central body and target orbit
+            plt.scatter(0, 0, color='yellow', s=1000, label='Central Body', zorder=5)
+            angles = np.linspace(0, 2 * np.pi, 200)
+            plt.plot(np.cos(angles), np.sin(angles), 'g--', label='Target Orbit (r=1.0)', zorder=1)
+
+            # Plot each trajectory
+            for i, traj in enumerate(trajectories):
+                if not traj: continue
+                traj_np = np.array(traj)
+                plt.plot(traj_np[:, 0], traj_np[:, 1], linestyle=':', color=colors[i], zorder=2)
+                plt.plot(traj_np[-1, 0], traj_np[-1, 1], 'o', color=colors[i], markersize=8, markeredgecolor='black', zorder=3)
+
+            plt.title("Multi-Episode Trajectory Visualization (Diverse Initial Radii)")
+            plt.xlim([-4.5, 4.5]); plt.ylim([-4.5, 4.5]) # Increased limits to see all trajectories
+            plt.gca().set_aspect('equal', adjustable='box'); plt.grid(True, alpha=0.3)
+
+            # Convert plot to an image array
+            fig = plt.gcf()
+            fig.canvas.draw()
+            image = np.array(fig.canvas.renderer.buffer_rgba())
+            plt.close(fig)
+            frames.append(image)
+
+            # --- Step the environment ---
+            with torch.no_grad():
+                norm_obs = obs_normalizer(obs, update=False)
+                action = policy_net(norm_obs).mean
+                # Use a smaller, more stable action for evaluation rendering
+                next_obs, _, done_tensor, _, _ = gif_env.step(torch.clamp(action, -0.1, 0.1))
+                obs = next_obs
+
+            for i in range(num_render_envs):
+                if not dones[i]: # Only append to non-finished trajectories
+                    trajectories[i].append((gif_env.x[i].item(), gif_env.y[i].item()))
+
+            dones |= done_tensor
+            if dones.all(): break # Stop if all episodes are done
+
+        if frames:
+            # Hold on the last frame for a moment
+            for _ in range(fps): frames.append(frames[-1])
+            imageio.mimsave(filename, frames, fps=fps)
+        print(f"✅ GIF saved to {filename}")
+
+    def evaluate_and_plot_policy(self, policy_net, obs_normalizer, env_prototype, filename, device):
         """
-        Generates the default combined figure with radius, action, and orbit plots.
+        Runs a single deterministic episode from a random start and plots key metrics
+        (radius and action) over time. This helps analyze the policy's control strategy.
+
         Args:
-            interval: Frame processing interval (int).
-            episode_num: Episode number being rendered (int).
-            data_type: Folder from which to load data ('testing' or 'training') (str, optional).
+            policy_net (PolicyNetwork): The trained policy network.
+            obs_normalizer (ObservationNormalizer): The trained observation normalizer.
+            env_prototype (OrbitalEnvironment): A sample environment to get parameters like max_steps.
+            filename (str): The full path to save the output plot file.
+            device (str): The device ('cpu' or 'cuda') to run the simulation on.
         """
+        print(f"📈 Evaluating policy and plotting results to {filename}...")
+        eval_env = OrbitalEnvironment(num_envs=1, max_steps=env_prototype.max_steps, sim_device=device)
+        # Give a random start within the curriculum range for a robust test
+        eval_env.x[0] = 0.2 + torch.rand(1, device=device) * 3.8
+        obs = eval_env.reset(env_indices=[0])
 
-        # Update function for animation, defined first to be used by FuncAnimation
-        def update(timestep_idx):
-            # Print current timestep index for debugging
-            print(f"timestep_idx: {timestep_idx}")
+        radii_history, actions_history = [], []
+        done = False
+        
+        initial_r, _, _, _, _ = eval_env._get_raw_state()
+        radii_history.append(initial_r.item())
+        
+        for _ in range(eval_env.max_steps):
+            if done: break
+            with torch.no_grad():
+                norm_obs = obs_normalizer(obs, update=False)
+                action = policy_net(norm_obs).mean
+            
+            actions_history.append(action.item())
+            obs, _, done_tensor, _, _ = eval_env.step(action)
+            done = done_tensor.item()
+            
+            r, _, _, _, _ = eval_env._get_raw_state()
+            radii_history.append(r.item())
+        
+        fig, axes = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+        fig.suptitle('Policy Evaluation: Radius & Action vs. Time', fontsize=16)
+        
+        axes[0].plot(radii_history[:-1], label='Radius (r)', color='dodgerblue')
+        axes[0].axhline(y=1.0, color='r', linestyle='--', label='Target Radius (r=1.0)')
+        axes[0].set_title('Satellite Radius vs. Time'); axes[0].set_ylabel('Radius')
+        axes[0].legend(); axes[0].grid(True, alpha=0.5)
+        
+        axes[1].plot(actions_history, label='Action', color='seagreen', marker='.', linestyle='-')
+        axes[1].set_title('Action vs. Time'); axes[1].set_xlabel('Time Step'); axes[1].set_ylabel('Action Magnitude')
+        axes[1].legend(); axes[1].grid(True, alpha=0.5)
 
-            # Retrieve data for the current timestep
-            x, y, vx, vy = self.state[timestep_idx]
-            r = self.radius_history[timestep_idx]
-            action = self.action_history[timestep_idx]
-            reward = self.reward_history[timestep_idx]
-            timestep = self.timestep_history[timestep_idx]
-            r_err = self.r_err_norm_history[timestep_idx]
-            d_r_err = self.d_r_err_norm_history[timestep_idx]
-            int_r_err = self.int_r_err_norm_history[timestep_idx]
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.savefig(filename)
+        plt.close(fig)
+        print(f"✅ Evaluation plot saved to {filename}")
 
-            action = float(action) if isinstance(action, np.ndarray) else action
-
-            # Compute radial and tangential velocities
-            v_radial = (x * vx + y * vy) / r
-            v_tangential = (x * vy - y * vx) / r
-
-            # Update orbit path with a gradient effect
-            if timestep_idx > 0:
-                segments = np.array([self.state[i:i+2, :2] for i in range(timestep_idx)])
-                lc = LineCollection(segments, cmap='Blues', linewidth=2)
-                lc.set_array(np.linspace(0.1, 1.0, len(segments)))
-                self.ax_orbit.add_collection(lc)
-
-            # Update spaceship position in orbit plot
-            self.spaceship_plot.set_data([x], [y])
-
-            # Set spaceship label with updated position and timestep info
-            spaceship_label = f'Spaceship \nx: {x:.2f}, y: {y:.2f}, \nr: {r:.3f}, \nt: {timestep}'
-            self.spaceship_plot.set_label(spaceship_label)
-
-            # Update velocity arrow
-            if self.velocity_arrow:
-                self.velocity_arrow.remove()
-            self.velocity_arrow = self.ax_orbit.arrow(x, y, vx, vy, head_width=0.05, head_length=0.1, fc='green', ec='green')
-            velocity_label = f'Velocity \nvx: {vx:.2f}, vy: {vy:.2f}, \nv_rad: {v_radial:.2f}, \nv_tan: {v_tangential:.2f}'
-
-            # Update thrust arrow based on action
-            if action is not None:
-                theta = np.arctan2(y, x)
-                ax_x = -np.sin(theta) * action
-                ax_y = np.cos(theta) * action
-
-                # Ensure ax_x and ax_y are scalars
-                ax_x = float(ax_x)
-                ax_y = float(ax_y)
-
-                if self.thrust_arrow:
-                    self.thrust_arrow.remove()
-                self.thrust_arrow = self.ax_orbit.arrow(x, y, ax_x, ax_y, head_width=0.05, head_length=0.1, fc='orange', ec='orange')
-                thrust_label = f'Thrust \ntx: {ax_x:.2f}, ty: {ax_y:.2f}'
-
-            # Update radius plot
-            self.ax_radius.clear()
-            self.ax_radius.plot(self.timestep_history[:timestep_idx+1], self.radius_history[:timestep_idx+1], color='blue')
-            self.ax_radius.set_title('Radius Over Time')
-            self.ax_radius.set_xlabel('Timestep')
-            self.ax_radius.set_ylabel('Radius')
-
-            # Update action plot
-            self.ax_action.clear()
-            self.ax_action.plot(self.timestep_history[:timestep_idx+1], self.action_history[:timestep_idx+1], color='orange')
-            self.ax_action.set_title('Action Over Time')
-            self.ax_action.set_xlabel('Timestep')
-            self.ax_action.set_ylabel('Action')
-
-            # Update reward plot
-            self.ax_reward.clear()
-            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.reward_history[:timestep_idx+1], color='green', label=f'Reward ({reward:.2f})')
-            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.r_err_norm_history[:timestep_idx+1], color='blue', alpha=0.5, label=f'r_err ({r_err:.2f})')
-            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.d_r_err_norm_history[:timestep_idx+1], color='red', alpha=0.5, label=f'd_r_err ({d_r_err:.2f})')
-            self.ax_reward.plot(self.timestep_history[:timestep_idx+1], self.int_r_err_norm_history[:timestep_idx+1], alpha=0.5, color='purple', label=f'int_r_err ({int_r_err:.2f})')
-            self.ax_reward.set_title('Reward and Error Factors Over Time')
-            self.ax_reward.set_xlabel('Timestep')
-            self.ax_reward.set_ylabel('Value')
-            self.ax_reward.legend(fontsize='small', loc='upper right')
-
-            # Update legend in orbit plot
-            self.ax_orbit.legend([self.spaceship_plot, self.velocity_arrow, self.thrust_arrow], 
-                                     [spaceship_label, velocity_label, thrust_label], loc='upper right')
-
-            # Adjust spacing
-            plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.1, wspace=0.4, hspace=0.3)
-            self.fig.tight_layout()
-
-        # Set up figure and axes if not already created
-        if self.fig is None:
-            self.fig = plt.figure(figsize=(12, 8))
-            gs = plt.GridSpec(3, 2, width_ratios=[1, 2], height_ratios=[1, 1, 1], figure=self.fig)
-            self.ax_radius = self.fig.add_subplot(gs[0, 0])
-            self.ax_action = self.fig.add_subplot(gs[1, 0])
-            self.ax_reward = self.fig.add_subplot(gs[2, 0])
-            self.ax_orbit = self.fig.add_subplot(gs[:, 1])
-
-            # Plot a static star at the center in the orbit plot
-            self.ax_orbit.plot(0, 0, marker='*', markersize=15, color='red', label='Star (0,0)')
-
-            # Add orbit circles for reference radii
-            max_radius = 5
-            for radius in range(1, max_radius + 1):
-                circle = Circle((0, 0), radius, color=(0.5, 0.5, 0.5, 0.5), fill=False, linestyle='--')
-                self.ax_orbit.add_artist(circle)
-
-            # Initialize spaceship plot, velocity arrow, and thrust arrow placeholders
-            self.spaceship_plot, = self.ax_orbit.plot([], [], marker='o', markersize=10, color='blue', label='Spaceship')
-            self.velocity_arrow = None
-            self.thrust_arrow = None
-
-            # Set plot limits based on initial radius
-            initial_r = self.radius_history[0]
-            plot_limit = max(1, initial_r) + 1
-            self.ax_orbit.set_xlim([-plot_limit, plot_limit])
-            self.ax_orbit.set_ylim([-plot_limit, plot_limit])
-
-            # Titles and labels for subplots
-            self.ax_radius.set_title('Radius Over Time')
-            self.ax_radius.set_xlabel('Timestep')
-            self.ax_radius.set_ylabel('Radius')
-
-            self.ax_action.set_title('Action Over Time')
-            self.ax_action.set_xlabel('Timestep')
-            self.ax_action.set_ylabel('Action')
-
-            self.ax_reward.set_title('Reward Over Time')
-            self.ax_reward.set_xlabel('Timestep')
-            self.ax_reward.set_ylabel('Reward')
-
-            self.ax_orbit.set_aspect('equal')
-            self.ax_orbit.set_title('Orbit Over Time')
-
-        # Generate animation using the update function
-        frames_to_use = range(0, len(self.timestep_history), interval)
-        ani = animation.FuncAnimation(self.fig, update, frames=frames_to_use, interval=50, repeat=False)
-
-        # Define the base animation path
-        base_animation_path = os.path.join(self.model_save_path, data_type, f"episode_{episode_num}_animation_interval_{interval}.mp4")
-        animation_save_path = base_animation_path
-
-        # Check for existing file and append a number if necessary
-        count = 1
-        while os.path.exists(animation_save_path):
-            animation_save_path = os.path.join(self.model_save_path, data_type, f"episode_{episode_num}_animation_interval_{interval}_{count}.mp4")
-            count += 1
-
-        ani.save(animation_save_path, writer='ffmpeg')
-        print(f"Animation saved to {animation_save_path} with interval {interval}")
-
-    def close(self):
+    def evaluate_across_initial_radii(self, policy_net, obs_normalizer, env_prototype, filename, device, num_data_points=30):
         """
-        Closes the rendering window.
-        Returns: None
+        Evaluates the policy's performance across a range of initial radii to test its
+        robustness and generalization. Plots final metrics against the starting radius.
+
+        Args:
+            policy_net (PolicyNetwork): The trained policy network.
+            obs_normalizer (ObservationNormalizer): The trained observation normalizer.
+            env_prototype (OrbitalEnvironment): A sample environment to get parameters like max_steps.
+            filename (str): The full path to save the output plot file.
+            device (str): The device ('cpu' or 'cuda') to run the simulation on.
+            num_data_points (int): How many different initial radii to test.
         """
-        plt.close(self.fig)
+        print(f"📊 Evaluating policy across initial radii and plotting to {filename}...")
+        eval_env = OrbitalEnvironment(num_envs=1, max_steps=env_prototype.max_steps, sim_device=device)
+        
+        initial_radii_to_test = torch.linspace(0.2, 4.0, num_data_points, device=device)
+        initial_actions, episode_lengths, final_eccentricities, final_radii = [], [], [], []
+
+        for init_r_val in initial_radii_to_test:
+            # Manually set the environment state for this specific test case
+            eval_env.x[0], eval_env.y[0], eval_env.vx[0] = init_r_val, 0.0, 0.0
+            eval_env.vy[0] = torch.sqrt(eval_env.GM / torch.clamp(init_r_val, min=1e-6))
+            obs = eval_env.reset(env_indices=[0])
+            
+            # Record the very first action the policy takes
+            with torch.no_grad():
+                norm_obs = obs_normalizer(obs, update=False)
+                initial_actions.append(policy_net(norm_obs).mean.item())
+
+            # Run the full episode
+            done = False
+            for step in range(eval_env.max_steps):
+                if done: break
+                with torch.no_grad():
+                    norm_obs = obs_normalizer(obs, update=False)
+                    action = policy_net(norm_obs).mean
+                obs, _, done_tensor, _, _ = eval_env.step(torch.clamp(action, -0.1, 0.1))
+                done = done_tensor.item()
+            
+            # Record the final state metrics
+            r, _, _, _, ecc = eval_env._get_raw_state()
+            episode_lengths.append(step + 1)
+            final_eccentricities.append(ecc.item())
+            final_radii.append(r.item())
+
+        # Create a 2x2 grid of plots
+        fig, axes = plt.subplots(2, 2, figsize=(14, 12), tight_layout=True)
+        fig.suptitle('Policy Performance Across Initial Radii', fontsize=16)
+        
+        axes[0, 0].plot(initial_radii_to_test.cpu().numpy(), initial_actions, 'o-'); axes[0, 0].set_title('Initial Action')
+        axes[0, 1].plot(initial_radii_to_test.cpu().numpy(), episode_lengths, 'o-', color='tab:orange'); axes[0, 1].set_title('Episode Length')
+        axes[1, 0].plot(initial_radii_to_test.cpu().numpy(), final_eccentricities, 'o-', color='tab:green'); axes[1, 0].set_title('Final Eccentricity')
+        axes[1, 1].plot(initial_radii_to_test.cpu().numpy(), final_radii, 'o-', color='tab:red'); axes[1, 1].set_title('Final Radius')
+
+        axes[1, 0].set_ylim(0, 1)
+        axes[1, 1].set_ylim(0, 4)
+
+        for ax in axes.flatten(): ax.set_xlabel('Initial Radius'); ax.grid(True, alpha=0.5)
+        plt.savefig(filename)
+        plt.close(fig)
+        print(f"✅ Cross-radii evaluation plot saved to {filename}")
