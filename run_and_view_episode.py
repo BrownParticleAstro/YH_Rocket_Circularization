@@ -1,28 +1,74 @@
 import os
-from environment import OrbitalEnvWrapper
-from stable_baselines3 import PPO
-from render import Renderer
-from model import create_model
+import torch
+
+from environment import OrbitalEnvironment
 from train import train_model
 from test import test_model
+from render import Renderer
+from model import PolicyNetwork
 
-# Create the training environment
-env_train = OrbitalEnvWrapper()
+# ===================================================================
+# Main Execution Block
+# ===================================================================
+if __name__ == '__main__':
+    """
+    This script serves as the main entry point for the project.
+    It orchestrates the following sequence:
+    1. Training: Trains the PPO agent using the `train_model` function.
+    2. Evaluation: Loads the final trained model.
+    3. Testing: Runs a standard test episode and saves its trajectory data.
+    4. Rendering: Generates a suite of visualizations to analyze the agent's performance.
+    """
 
-# Train the model
-save_dir = './models'
-model, model_save_path = train_model(env_train, save_dir, total_timesteps=10_000_000)  # 700k for any, 1m for r0=1.0
+    # --- 1. Train the model ---
+    # The `save_dir` is where all models and their corresponding logs/plots will be stored.
+    save_dir = './models'
+    # The number of updates determines how long the agent trains.
+    # A quick run might use 200, while a full training run might use 1000+.
+    # Set to 1 for a quick test of the pipeline.
+    _, model_save_path, obs_normalizer = train_model(save_dir, total_updates=1000) 
+    
+    print("\n" + "="*50)
+    print("      TRAINING COMPLETE - STARTING EVALUATION")
+    print("="*50 + "\n")
 
-# Load the trained model for inference and testing
-env_test = OrbitalEnvWrapper()
-for i in range(3):
-    env_test.reset()
-    test_model(env_test, os.path.join(model_save_path, "ppo_orbital_model"), model_save_path, episode_num=1)
+    # --- 2. Setup for Testing and Rendering ---
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    # A prototype environment instance is needed by the renderer to get parameters like max_steps.
+    env_proto = OrbitalEnvironment(num_envs=1, sim_device=device)
+    
+    # Load the final trained model weights into a new network instance.
+    final_model_path = os.path.join(model_save_path, "policy_final.pt")
+    state_dim, action_dim = 10, 1
+    eval_policy_net = PolicyNetwork(state_dim, action_dim).to(device)
+    eval_policy_net.load_state_dict(torch.load(final_model_path))
+    # Set the network to evaluation mode (this disables things like dropout if it were used).
+    eval_policy_net.eval()
 
-    # Create a renderer instance using the dynamic model_save_path
+    # --- 3. Run a Standard Test Episode ---
+    # This saves a single trajectory .npz file, which could be used for other types of analysis.
+    test_env = OrbitalEnvironment(num_envs=1, sim_device=device, max_steps=1000)
+    test_data_dir = os.path.join(model_save_path, "testing_data")
+    test_model(test_env, eval_policy_net, obs_normalizer, test_data_dir, episode_num=1)
+    
+    # --- 4. Generate All Final Visualizations ---
+    # Create a renderer instance pointing to the specific model's output directory.
     renderer = Renderer(model_save_path=model_save_path)
 
-    # Render the first episode from the training data
-    renderer.render(episode_num=1, interval=50, data_type="testing")
-    env_test.reset()
+    print("\n--- Generating final visualizations ---")
+    
+    # Generate the single-episode evaluation plot (Radius & Action vs. Time)
+    eval_plot_filename = os.path.join(model_save_path, "final_evaluation_plot.png")
+    # FIX: Corrected method name from 'plot_evaluation' to 'evaluate_and_plot_policy'
+    renderer.evaluate_and_plot_policy(eval_policy_net, obs_normalizer, env_proto, eval_plot_filename, device)
 
+    # Generate the plot showing performance across a range of starting conditions
+    eval_radii_plot_filename = os.path.join(model_save_path, "final_eval_across_radii.png")
+    renderer.evaluate_across_initial_radii(eval_policy_net, obs_normalizer, env_proto, eval_radii_plot_filename, device)
+
+    # Generate the final GIF animation showing multiple trajectories
+    gif_filename = os.path.join(model_save_path, "final_orbit_animation.gif")
+    renderer.render_episode_to_gif(eval_policy_net, obs_normalizer, env_proto, gif_filename, device=device)
+
+    print(f"\n✅ All evaluation and rendering finished. Results are in: {model_save_path}")

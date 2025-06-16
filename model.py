@@ -1,89 +1,81 @@
-import gym
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from stable_baselines3 import PPO
-from stable_baselines3.common.policies import ActorCriticPolicy
-from itertools import chain
+from torch.distributions import Normal
 
-# Custom NewtonOptimizer class
-class NewtonOptimizer(optim.Optimizer):
+class PolicyNetwork(nn.Module):
     """
-    Implements a simplified version of Newton's Method for deep learning.
-    Computes parameter updates using the inverse of the Hessian matrix.
+    The policy network (the "actor") that learns which action to take.
+    It takes the current state as input and outputs the parameters of a
+    probability distribution over the continuous action space.
+
+    Args:
+        state_dim (int): The dimensionality of the state space.
+        action_dim (int): The dimensionality of the action space.
     """
-    def __init__(self, params, lr=1.0, damping=1e-4):
+    def __init__(self, state_dim, action_dim):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(state_dim, 256), 
+            nn.Tanh(), 
+            nn.Linear(256, 256), 
+            nn.Tanh()
+        )
+        # The policy head outputs the mean of the action distribution
+        self.mean_head = nn.Linear(256, action_dim)
+        # A separate head outputs the log standard deviation of the action distribution
+        self.log_std_head = nn.Linear(256, action_dim)
+        
+        # Initialize the output layer for the standard deviation.
+        # A small negative bias encourages smaller initial standard deviations,
+        # leading to more stable exploration at the beginning of training.
+        self.log_std_head.bias.data.fill_(-1.0)
+        self.log_std_head.weight.data.fill_(0.0) # Start with uniform std
+        
+    def forward(self, state):
         """
+        Performs a forward pass through the network.
+
         Args:
-            params: Iterable of model parameters to optimize.
-            lr: Learning rate for the parameter updates.
-            damping: Damping factor for stabilizing the Hessian inversion.
-        """
-        defaults = {'lr': lr, 'damping': damping}
-        super(NewtonOptimizer, self).__init__(params, defaults)
+            state (torch.Tensor): The input state.
 
-    def step(self, closure=None):
+        Returns:
+            torch.distributions.Normal: A Normal distribution over the actions.
         """
-        Performs a single optimization step.
+        x = self.network(state)
+        # We use a Normal distribution for the continuous action space.
+        mean = self.mean_head(x)
+        # Clamp log_std for numerical stability. exp(log_std) gives the actual std.
+        log_std = torch.clamp(self.log_std_head(x), -5.0, -0.5)
+        std = torch.exp(log_std)
+        return Normal(mean, std)
+
+class ValueNetwork(nn.Module):
+    """
+    The value network (the "critic") that learns to estimate the expected
+    return (value) from a given state. This is used to compute the advantage
+    function, which guides the policy updates.
+
+    Args:
+        state_dim (int): The dimensionality of the state space.
+    """
+    def __init__(self, state_dim):
+        super().__init__()
+        self.network = nn.Sequential(
+            nn.Linear(state_dim, 256), 
+            nn.Tanh(), 
+            nn.Linear(256, 256), 
+            nn.Tanh(), 
+            nn.Linear(256, 1) # Outputs a single scalar value for the state
+        )
+        
+    def forward(self, state):
+        """
+        Performs a forward pass to estimate the value of the state.
+
         Args:
-            closure: A closure that re-evaluates the model and returns the loss.
+            state (torch.Tensor): The input state.
+
+        Returns:
+            torch.Tensor: A tensor containing the estimated value of the state.
         """
-        loss = None
-        if closure is not None:
-            loss = closure()
-
-        for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-                
-                grad = p.grad
-                if grad.is_sparse:
-                    raise RuntimeError('NewtonOptimizer does not support sparse gradients.')
-
-                hessian = self._compute_hessian(grad, p)
-                hessian_inv = torch.linalg.pinv(hessian + group['damping'] * torch.eye(hessian.size(0)))
-
-                update = hessian_inv @ grad.view(-1)
-                p.data.add_(-group['lr'] * update.view(p.size()))
-
-        return loss
-
-    def _compute_hessian(self, grad, param):
-        """
-        Computes the Hessian matrix for the given gradient.
-        """
-        grad2rd = torch.autograd.grad(grad.sum(), param, create_graph=True)[0]
-        hessian = []
-        for g2 in grad2rd.view(-1):
-            h_row = torch.autograd.grad(g2, param, retain_graph=True)[0].view(-1)
-            hessian.append(h_row)
-        return torch.stack(hessian)
-
-# Custom policy class that uses NewtonOptimizer as the optimizer
-class CustomActorCriticPolicy(ActorCriticPolicy):
-    def __init__(self, *args, **kwargs):
-        super(CustomActorCriticPolicy, self).__init__(*args, **kwargs)
-    def _make_optimizers(self):
-        self.optimizer = NewtonOptimizer(self.parameters(), lr=self.learning_rate, damping=1e-4)
-
-def create_model(env):
-    """
-    Initializes an untrained PPO model with the default feature extractor.
-    """
-    policy_kwargs = dict(
-        net_arch=[dict(pi=[32, 32, 32, 32, 32, 32],    # Actor network (abritrary deep architecture)
-                       vf=[32, 32, 32, 32, 32, 32])],  # Critic network (abritrary deep architecture)
-        activation_fn=nn.ReLU,
-    )
-
-    return PPO(CustomActorCriticPolicy, # Architecture type w Newton optimizer
-        env,                            # Environment
-        policy_kwargs=policy_kwargs,
-        verbose=1,                   
-        learning_rate=3e-4,             # Learning rate
-        n_steps=2048,                   # num of steps before policy update
-        batch_size=64,                  # num of samples per policy update calculation
-        ent_coef=0.01,                  # factor to encourage randomness of policy (aka exploration)
-        gamma=0.9995,                   # far-sighted consideration of long term reward
-        )              
+        return self.network(state)

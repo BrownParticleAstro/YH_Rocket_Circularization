@@ -1,55 +1,60 @@
-from stable_baselines3 import PPO
+import torch
 import numpy as np
 import os
 
-""" Runs a test episode of the trained model on the environment and saves the results. """
-def test_model(env, model_path, model_save_path, episode_num):
+from environment import OrbitalEnvironment
+from model import PolicyNetwork
+
+def test_model(env, policy_net, obs_normalizer, save_path, episode_num):
     """
+    Runs a single test episode of the trained model on the environment and saves the trajectory data.
+    This is useful for creating specific, repeatable visualizations.
+
     Args:
-        env: Environment to test on (gym.Env).
-        model_path: Path to the trained PPO model (str).
-        model_save_path: Directory to save the test episode data (str).
-        episode_num: Number to identify the episode (int).
-
-    Returns:
-        None. Saves the test episode data to a file.
+        env (OrbitalEnvironment): A single instance of the environment, already initialized.
+        policy_net (PolicyNetwork): The trained PolicyNetwork model.
+        obs_normalizer (ObservationNormalizer): The trained ObservationNormalizer.
+        save_path (str): Directory to save the test episode data as an .npz file.
+        episode_num (int): A number to identify the saved episode file.
     """
-    # Ensure the directory for saving testing data exists
-    test_data_dir = os.path.join(model_save_path, "testing")
-    os.makedirs(test_data_dir, exist_ok=True)
-
-    model = PPO.load(model_path)
-    obs = env.reset()
+    print(f"--- Running test episode {episode_num} ---")
+    os.makedirs(save_path, exist_ok=True)
+    
+    # Reset the single environment instance for the test run
+    obs = env.reset(env_indices=[0])
     done = False
-    episode_data = []  # To store the test episode data
-    timestep = 0  # Initialize a manual timestep tracker
+    episode_data = []
+    timestep = 0
 
     while not done:
-        action, _ = model.predict(obs, deterministic=True)
-        obs, reward, done, info = env.step(action)
-        x, y, vx, vy = env.state
-        r_err_norm = info['r_err_norm']
-        d_r_err_norm = info['d_r_err_norm']
-        int_r_err_norm = info['int_r_err_norm']
+        # We don't need to track gradients during testing
+        with torch.no_grad():
+            # Normalize observation without updating the running stats
+            norm_obs = obs_normalizer(obs, update=False)
+            # Use the mean of the policy distribution for deterministic action
+            action = policy_net(norm_obs).mean
+        
+        # Step the environment with the deterministic action
+        obs, reward, done_tensor, info, _ = env.step(torch.clamp(action, -0.1, 0.1))
+        done = done_tensor.any().item()
 
-        # Append data with new quantities
-        episode_data.append([
-            x, y, vx, vy, timestep, action, reward,
-            r_err_norm, d_r_err_norm, int_r_err_norm
-        ])
+        # Extract state from the single environment instance for logging
+        x, y, vx, vy = env.x[0].item(), env.y[0].item(), env.vx[0].item(), env.vy[0].item()
+        
+        # Store the state, action, and reward for this timestep
+        episode_data.append([x, y, vx, vy, timestep, action[0].item(), reward[0].item()])
         timestep += 1
+        if timestep >= env.max_steps:
+            done = True
 
-    # Save the episode data to the test data directory
-    np.savez(os.path.join(test_data_dir, f'episode_{episode_num}.npz'),
+    # Save the collected episode data to a compressed .npz file
+    np.savez(os.path.join(save_path, f'episode_{episode_num}.npz'),
              x=np.array([step[0] for step in episode_data]),
              y=np.array([step[1] for step in episode_data]),
              vx=np.array([step[2] for step in episode_data]),
              vy=np.array([step[3] for step in episode_data]),
              episode_step=np.array([step[4] for step in episode_data]),
              action=np.array([step[5] for step in episode_data]),
-             reward=np.array([step[6] for step in episode_data]),
-             r_err_norm=np.array([step[7] for step in episode_data]),
-             d_r_err_norm=np.array([step[8] for step in episode_data]),
-             int_r_err_norm=np.array([step[9] for step in episode_data]))
+             reward=np.array([step[6] for step in episode_data]))
 
-    print(f"Test episode {episode_num} completed and saved in {test_data_dir}")
+    print(f"Test episode {episode_num} completed and data saved in {save_path}")

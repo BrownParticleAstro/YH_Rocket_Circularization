@@ -1,302 +1,338 @@
+import torch
 import numpy as np
-import gym
-from gym import spaces
 
-# OrbitalEnvironment simulates a 2D gravitational orbital system.
-# Takes the gravitational constant (GM), initial radius (r0), initial velocity (v0), time step (dt),
-# maximum simulation steps, and an optional reward function.
-# Outputs the current state after each step (x, y, vx, vy) and reward.
-class OrbitalEnvironment:
-    def __init__(self, GM=1.0, r0=None, v0=1.0, dt=0.01, max_steps=5000, reward_function=None):
+# =============================
+# Set seeds for reproducibility
+# =============================
+seed = 42
+np.random.seed(seed)
+torch.manual_seed(seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(seed)
+
+# ===================================================================
+# Online Normalization Helper Classes
+# ===================================================================
+class RunningMeanStd:
+    """
+    Calculates a running mean and standard deviation for online normalization.
+    This is crucial for stabilizing training in environments with varying state scales.
+    It uses Welford's algorithm to update statistics in a single pass.
+    """
+    def __init__(self, shape=()):
         """
+        Initializes the running statistics.
+
         Args:
-            GM: Gravitational constant (float).
-            r0: Initial orbital radius (float). If None, a random value is generated.
-            v0: Initial velocity (float).
-            dt: Time step for the simulation (float).
-            max_steps: Maximum number of simulation steps (int).
-            reward_function: Optional function for calculating rewards. Defaults to exponential radial difference.
+            shape (tuple): The shape of the data to be normalized.
+        """
+        # Initialize stats in float64 for better numerical stability during updates.
+        self.mean = torch.zeros(shape, dtype=torch.float64)
+        self.var = torch.ones(shape, dtype=torch.float64)
+        self.count = 1e-4  # Small epsilon to avoid division by zero
+
+    def update(self, x):
+        """
+        Updates the running mean and variance with a new batch of data.
+
+        Args:
+            x (torch.Tensor): A new batch of data.
+        """
+        # Cast the input tensor to float64 before calculations for precision.
+        x_float64 = x.to(torch.float64)
+        batch_mean = torch.mean(x_float64, dim=0)
+        batch_var = torch.var(x_float64, dim=0)
+        batch_count = x.shape[0]
+        self.update_from_moments(batch_mean, batch_var, batch_count)
+
+    def update_from_moments(self, batch_mean, batch_var, batch_count):
+        """Updates statistics from pre-computed moments of a batch."""
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * self.count
+        m_b = batch_var * batch_count
+        # Combine variances using the parallel axis theorem
+        m_2 = m_a + m_b + torch.square(delta) * self.count * batch_count / tot_count
+        new_var = m_2 / tot_count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = tot_count
+
+class ObservationNormalizer:
+    """
+    A wrapper class that applies online normalization to observations using RunningMeanStd.
+    """
+    def __init__(self, shape, device):
+        """
+        Initializes the normalizer.
+
+        Args:
+            shape (tuple): The shape of the observation space.
+            device (torch.device): The device the tensors are on.
+        """
+        self.rms = RunningMeanStd(shape=shape)
+        self.clip = 10.0  # Clip observations to a reasonable range to prevent extreme values.
+        self.device = device
+        self.epsilon = 1e-8 # Small value to avoid division by zero in normalization.
+
+    def __call__(self, obs, update=True):
+        """
+        Normalizes observations and optionally updates the running statistics.
+
+        Args:
+            obs (torch.Tensor): The observation tensor to normalize.
+            update (bool): If True, update the running mean/std. Should be True for training, False for evaluation.
 
         Returns:
-            None. Initializes the orbital environment state.
+            torch.Tensor: The normalized and clipped observation.
         """
-        self.GM = GM
-        self.dt = dt
-        self.init_r = r0 if r0 is not None else np.random.uniform(0.2, 4.0)
-        self.enforce_r = True if r0 is not None else False
-        self.x = self.init_r
-        self.y = 0.0
-        self.vx = 0.0
-        self.vy = np.sqrt(self.GM / self.init_r)
-        self.max_steps = max_steps
-        self.current_step = 0
-        self.reward_function = reward_function or self.default_reward
+        if update:
+            self.rms.update(obs.cpu()) # Statistics are updated on the CPU
+        
+        # Normalize using existing stats, moving them to the correct device and dtype
+        normalized_obs = (obs - self.rms.mean.to(self.device, dtype=torch.float32)) / torch.sqrt(self.rms.var.to(self.device, dtype=torch.float32) + self.epsilon)
+        return torch.clamp(normalized_obs, -self.clip, self.clip)
+
+# ===================================================================
+# Environment Model
+# ===================================================================
+class OrbitalEnvironment:
+    """
+    Simulates a vectorized 2D gravitational orbital system for reinforcement learning.
+    This environment runs multiple simulations in parallel on a specified device (e.g., GPU)
+    for efficient training. It features a PID-inspired state representation and a curriculum
+    learning approach for the initial state distribution.
+
+    Args:
+        GM (float): The gravitational constant multiplied by the central mass.
+        dt (float): The time step for the simulation.
+        max_steps (int): The maximum number of steps per episode before truncation.
+        num_envs (int): The number of parallel environments to simulate.
+        sim_device (torch.device): The device (CPU or CUDA) to run the simulation on.
+    """
+    def __init__(self, GM=1.0, dt=0.01, max_steps=1000, num_envs=1, sim_device=None):
+        self.num_envs, self.device = num_envs, sim_device or torch.device("cpu")
+        self.GM, self.dt, self.max_steps = GM, dt, max_steps
+        
+        # State variables for all environments (position and velocity)
+        self.x, self.y, self.vx, self.vy = [torch.zeros(num_envs, device=self.device) for _ in range(4)]
+        self.current_step = torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
+        
+        # For curriculum learning
+        self.current_episode_in_loop = 0
+        
+        # State variables for PID-like features
+        self.prev_r, self.prev_v_radial, self.prev_eccentricity, self.prev_apoapsis = [torch.zeros(num_envs, device=self.device) for _ in range(4)]
+        self.integral_r_error, self.integral_ecc_error = [torch.zeros(num_envs, device=self.device) for _ in range(2)]
+        self.integral_clamp = 5.0
+        self.previous_r_error = torch.zeros(self.num_envs, device=self.device)
+        
+        # Tracking episode stats
+        self.episode_rewards, self.episode_lengths = [torch.zeros(num_envs, device=self.device) for _ in range(2)]
+        self.initial_radii = torch.zeros(num_envs, device=self.device)
+        
         self.reset()
 
-    def reset(self):
+    def reset(self, env_indices=None):
         """
-        Resets the environment to the initial state.
-        Returns: Initial state as a numpy array (x, y, vx, vy).
+        Resets the specified environments to an initial state.
+
+        Args:
+            env_indices (torch.Tensor, optional): A tensor of indices for the environments to reset.
+                                                  If None, all environments are reset.
+        Returns:
+            torch.Tensor: The initial observation for the reset environments.
         """
-        self.x = self.init_r if self.enforce_r else np.random.uniform(0.2, 4.0)
-        self.y = 0.0
-        self.vx = 0.0
-        self.vy = np.sqrt(self.GM / self.init_r)
-        self.current_step = 0
-        state = np.array([self.x, self.y, self.vx, self.vy])
-        return state
+        indices = slice(None) if env_indices is None else torch.tensor(env_indices, device=self.device, dtype=torch.long)
+        num_to_reset = self.num_envs if env_indices is None else len(env_indices)
+        
+        # Reset episode-specific stats
+        self.episode_rewards[indices], self.episode_lengths[indices] = 0.0, 0
+        self.integral_r_error[indices], self.integral_ecc_error[indices] = 0.0, 0.0
+
+        # Curriculum learning: Start with initial states close to the target orbit and
+        # gradually increase the difficulty by sampling from a wider range of initial radii.
+        max_err = min(2.0, 0.1 + ((max(0, self.current_episode_in_loop - 50)) / 800.0) * 1.9)
+        init_r = 1.0 + (torch.rand(num_to_reset, device=self.device) * max_err) * torch.sign(torch.randn(num_to_reset, device=self.device))
+        init_r = torch.clamp(init_r, 0.2, 4.0)
+
+        # Initialize to a circular orbit at the sampled radius
+        self.x[indices], self.y[indices], self.vx[indices] = init_r, 0.0, 0.0
+        self.vy[indices] = torch.sqrt(self.GM / torch.clamp(init_r, min=1e-6))
+        self.current_step[indices] = 0
+
+        # Reset PID-related state variables
+        r, vr, _, apo, ecc = self._get_raw_state()
+        self.prev_r[indices], self.prev_v_radial[indices], self.prev_eccentricity[indices], self.prev_apoapsis[indices] = r[indices], vr[indices], ecc[indices], apo[indices]
+        self.previous_r_error[indices] = torch.abs(r[indices] - 1.0)
+        self.initial_radii[indices] = init_r
+        
+        return self._get_observation()
+
+    def _acceleration(self, x, y):
+        """Helper function to compute gravitational acceleration."""
+        dist_sq = x**2 + y**2
+        dist_cubed = torch.clamp(dist_sq, min=1e-9)**1.5
+        inv_dist_cubed = 1.0 / dist_cubed
+        ax = -self.GM * x * inv_dist_cubed
+        ay = -self.GM * y * inv_dist_cubed
+        return torch.stack([ax, ay], dim=-1)
+
+    def _get_raw_state(self):
+        """Computes key orbital parameters from the Cartesian state."""
+        r = torch.sqrt(self.x**2 + self.y**2)
+        r_safe = torch.clamp(r, min=1e-6)
+        v2 = self.vx**2 + self.vy**2
+        
+        # Radial and tangential velocity
+        vr = (self.x * self.vx + self.y * self.vy) / r_safe
+        vt = (self.x * self.vy - self.y * self.vx) / r_safe
+        
+        # Orbital energy and angular momentum
+        energy = 0.5 * v2 - self.GM / r_safe
+        h = self.x * self.vy - self.y * self.vx
+        
+        # Semi-major axis (a), apoapsis, and eccentricity (e)
+        a = torch.full_like(energy, float('inf'))
+        is_ellip = energy < 0
+        a[is_ellip] = -self.GM / (2 * energy[is_ellip])
+        ecc = torch.sqrt(torch.clamp(1 + 2 * energy * h**2 / (self.GM**2), min=0))
+        apo = a * (1 + ecc)
+        apo[~is_ellip] = float('inf') # Apoapsis is infinite for non-elliptical orbits
+        
+        return r, vr, vt, torch.clamp(apo, 0.0, 10.0), torch.clamp(ecc, 0.0, 2.0)
+
+    def _get_observation(self):
+        """
+        Constructs the observation tensor from the raw state. This state is inspired by
+        PID controllers, including proportional (error), derivative (change in error),
+        and integral (accumulated error) terms.
+        """
+        r, vr, vt, apo, ecc = self._get_raw_state()
+        
+        # Proportional terms (current error)
+        r_err = r - 1.0
+        apo_err = apo - 1.0
+        
+        # Derivative terms (rate of change of error)
+        r_err_deriv = vr # Radial velocity is the derivative of radius
+        vr_deriv = (vr - self.prev_v_radial) / self.dt
+        ecc_deriv = (ecc - self.prev_eccentricity) / self.dt
+        
+        # Integral terms (accumulated error)
+        self.integral_r_error += r_err * self.dt
+        self.integral_ecc_error += ecc * self.dt
+        self.integral_r_error.clamp_(-self.integral_clamp, self.integral_clamp) # Anti-windup
+        self.integral_ecc_error.clamp_(-self.integral_clamp, self.integral_clamp)
+        
+        # Update previous values for the next step's derivative calculation
+        self.prev_r, self.prev_v_radial, self.prev_eccentricity = r.clone(), vr.clone(), ecc.clone()
+        
+        # The final observation vector fed to the agent
+        return torch.stack([
+            r_err,              # Proportional radius error
+            vr,                 # Radial velocity (derivative of radius)
+            ecc,                # Eccentricity (proportional error for circularity)
+            apo_err,            # Apoapsis error
+            r_err_deriv,        # (Same as vr)
+            vr_deriv,           # Derivative of radial velocity
+            ecc_deriv,          # Derivative of eccentricity
+            self.integral_r_error, # Integral of radius error
+            self.integral_ecc_error, # Integral of eccentricity error
+            vt                  # Tangential velocity
+        ], dim=-1)
+
+    def _compute_reward(self, r, vr, apo, ecc, terminated, truncated):
+        """
+        Calculates the reward based on the current state. The goal is to incentivize
+        the agent to reach and maintain a circular orbit with radius 1.
+        """
+        r_err_abs = torch.abs(r - 1.0)
+        
+        # 1. Progress Reward: Dense reward for reducing the radial error.
+        r_prog = self.previous_r_error - r_err_abs
+        self.previous_r_error = r_err_abs
+        
+        # 2. State Penalties: Penalize deviations from the target state (circular, r=1).
+        apo_rew = -0.5 * torch.abs(apo - 1.0) # Penalty for incorrect apoapsis
+        ecc_rew = -0.5 * ecc                 # Penalty for non-zero eccentricity
+        vr_pen = -0.1 * torch.abs(vr)        # Penalty for radial velocity
+        
+        # 3. Action Penalty: A small constant penalty to encourage efficiency.
+        act_pen = -0.01
+        
+        # Combine reward components with weights
+        total_rew = (150.0 * r_prog) + vr_pen + act_pen + 0.01 + apo_rew + ecc_rew
+        
+        # 4. Success Bonus: A large bonus if the episode ends in a good state.
+        good_state = (r_err_abs < 0.05) & (torch.abs(vr) < 0.05) & (torch.abs(apo - 1.0) < 0.05) & (ecc < 0.05)
+        total_rew[truncated & good_state] += 5.0
+        
+        # 5. Termination Penalty: A large penalty for crashing or flying away.
+        total_rew[terminated] = -2.0
+        
+        # For logging purposes
+        reward_components = {'r_prog': r_prog.mean().item(), 'apo_rew': apo_rew.mean().item(), 'ecc_rew': ecc_rew.mean().item()}
+        return total_rew, reward_components
     
     def step(self, action):
         """
         Advances the environment state by one timestep using Runge-Kutta (RK4) integration.
+
         Args:
-            action: Tangential thrust value (float).
+            action (torch.Tensor): The tangential thrust value for each environment.
 
         Returns:
-            Tuple of (new state, reward, done):
-            - new state: Updated state (x, y, vx, vy) as a numpy array.
-            - reward: Calculated reward based on the current state and action.
-            - done: Boolean indicating whether the simulation is complete.
+            tuple: A tuple containing (observation, reward, done, info, reward_components).
         """
-        action = np.array([0, action[0]])  # Tangential thrust only
-
-        def acceleration(state):
-            """Helper function to compute the gravitational acceleration."""
-            x, y = state[:2]
-            dist = np.sqrt(x**2 + y**2)
-            dist = np.clip(dist, 1e-5, 5.0)
-            rhat = np.array([x, y]) / dist
-            return -self.GM / (dist**2) * rhat
-
-        # Current state and RK4 position update
-        state = np.array([self.x, self.y, self.vx, self.vy])
-
-        # Calculate the RK4 update steps
-        k1_v = self.dt * acceleration(state)
-        k1_p = self.dt * np.array([self.vx, self.vy])
-
-        state_mid = state + 0.5 * np.concatenate([k1_p, k1_v])
-        k2_v = self.dt * acceleration(state_mid)
-        k2_p = self.dt * np.array([self.vx + 0.5 * k1_v[0], self.vy + 0.5 * k1_v[1]])
-
-        state_mid = state + 0.5 * np.concatenate([k2_p, k2_v])
-        k3_v = self.dt * acceleration(state_mid)
-        k3_p = self.dt * np.array([self.vx + 0.5 * k2_v[0], self.vy + 0.5 * k2_v[1]])
-
-        state_end = state + np.concatenate([k3_p, k3_v])
-        k4_v = self.dt * acceleration(state_end)
-        k4_p = self.dt * np.array([self.vx + k3_v[0], self.vy + k3_v[1]])
-
-        # Update velocity and position using RK4 weighted sum
-        self.vx += (k1_v[0] + 2 * k2_v[0] + 2 * k3_v[0] + k4_v[0]) / 6
-        self.vy += (k1_v[1] + 2 * k2_v[1] + 2 * k3_v[1] + k4_v[1]) / 6
-        self.x += (k1_p[0] + 2 * k2_p[0] + 2 * k3_p[0] + k4_p[0]) / 6
-        self.y += (k1_p[1] + 2 * k2_p[1] + 2 * k3_p[1] + k4_p[1]) / 6
-
-        # Apply the tangential thrust to the velocity
-        dist = np.sqrt(self.x**2 + self.y**2)
-        dist = max(dist, 1e-5)  # Avoid division by zero
-        rhat = np.array([self.x, self.y]) / dist
-        rotation_matrix = np.array([[rhat[0], -rhat[1]], [rhat[1], rhat[0]]])
-        thrust = rotation_matrix @ action
-        self.vx += thrust[0] * self.dt
-        self.vy += thrust[1] * self.dt
-
-        # Update state and calculate reward
-        state = np.array([self.x, self.y, self.vx, self.vy])
-        reward = self.reward_function(action[1])
-
-        # Check if the episode is done
-        done = dist > 5.0 or dist < 0.1 or self.current_step >= self.max_steps
+        action = action.squeeze(-1)
+        
+        # RK4 Integration for gravitational forces
+        pos, vel = torch.stack([self.x, self.y], dim=-1), torch.stack([self.vx, self.vy], dim=-1)
+        # --- FIX: Changed self.acceleration to self._acceleration in the four lines below ---
+        k1_v = self._acceleration(pos[:, 0], pos[:, 1]); k1_p = vel
+        k2_v = self._acceleration(pos[:, 0] + 0.5*self.dt*k1_p[:, 0], pos[:, 1] + 0.5*self.dt*k1_p[:, 1]); k2_p = vel + 0.5*self.dt*k1_v
+        k3_v = self._acceleration(pos[:, 0] + 0.5*self.dt*k2_p[:, 0], pos[:, 1] + 0.5*self.dt*k2_p[:, 1]); k3_p = vel + 0.5*self.dt*k2_v
+        k4_v = self._acceleration(pos[:, 0] + self.dt*k3_p[:, 0], pos[:, 1] + self.dt*k3_p[:, 1]); k4_p = vel + self.dt*k3_v
+        vel += (self.dt/6.0) * (k1_v + 2*k2_v + 2*k3_v + k4_v)
+        pos += (self.dt/6.0) * (k1_p + 2*k2_p + 2*k3_p + k4_p)
+        self.x, self.y, self.vx, self.vy = pos[:, 0], pos[:, 1], vel[:, 0], vel[:, 1]
+        
+        # Apply tangential thrust to the velocity
+        dist = torch.sqrt(self.x**2 + self.y**2)
+        safe_dist = torch.clamp(dist, min=1e-6)
+        self.vx += (-self.y/safe_dist * action) * self.dt
+        self.vy += (self.x/safe_dist * action) * self.dt
+        
         self.current_step += 1
-
-        return state, reward, done
-
-    def default_reward(self, action):
-        """
-        Default reward function based on radial distance from the target orbit and action penalty.
-        Args:
-            action: Tangential thrust value (float).
-        Returns:
-            Reward value (float).
-        """
-        r = np.sqrt(self.x**2 + self.y**2)
-        r_err = r - 1.0
-        r_max_err = max(abs(self.init_r - 1), 1e-2)
-        scaled_r_err = np.clip((r_err / r_max_err) * 2, -2, 2)
-
-        reward = np.exp(-scaled_r_err**2)
-        action_penalty = np.exp(-action**2)
-        return reward * action_penalty
-
-class OrbitalEnvWrapper(gym.Env):
-    def __init__(self, r0=None, reward_function=None):
-        """
-        Args:
-            r0: Initial orbital radius (float). If None, a random value is generated.
-            reward_function: Optional custom reward function.
+        obs = self._get_observation()
+        r, vr, _, apo, ecc = self._get_raw_state()
         
-        Returns:
-            None. Initializes the environment and action/observation spaces.
-        """
-        super(OrbitalEnvWrapper, self).__init__()
-        self.env = OrbitalEnvironment(r0=r0, reward_function=reward_function)
-        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(9,), dtype=np.float32)
-        self.state = None
-        self.episode_data = []
-        self.prev_r_err = None
-        self.integral_r_err = 0.0
-
-    def reset(self):
-        """
-        Resets the environment to the initial state and clears episode data.
-        Returns: Initial observation (numpy array) after conversion by _convert_state().
-        """
-        self.episode_data = []
-        self.state = self.env.reset()
-        self.prev_r_err = None
-        self.integral_r_err = 0.0
-        return self._convert_state(self.state, 0.0, 0.0)
-
-    def step(self, action):
-        """
-        Performs one step in the environment using the provided action.
-        Args:
-            action: Tangential thrust action (float).
-
-        Returns:
-            Tuple of (observation, reward, done, info):
-            - observation: Next state (numpy array).
-            - reward: Reward from the current step (float).
-            - done: Whether the episode has finished (boolean).
-            - info: Additional info dictionary containing the state.
-        """
-        self.state, base_reward, done = self.env.step(action)
-
-        # Extract state variables
-        x, y, vx, vy = self.state[0], self.state[1], self.state[2], self.state[3]
-        r = np.sqrt(x**2 + y**2)
-        t = self.env.current_step * self.env.dt  # Current time
-
-        # Constants for Hohmann transfer
-        r_initial = self.env.init_r
-        r_final = 1.0
-        transfer_time = np.pi * np.sqrt(((r_initial + r_final) / 2)**3 / self.env.GM)
-
-        # Compute expected radius at current time
-        if t < transfer_time:
-            # On elliptical transfer orbit
-            a_transfer = (r_initial + r_final) / 2
-            e_transfer = (r_final - r_initial) / (r_final + r_initial)
-            # Mean motion
-            n_transfer = np.sqrt(self.env.GM / a_transfer**3)
-            # Mean anomaly
-            M = n_transfer * t
-            # Eccentric anomaly approximation
-            E = M  # For small eccentricities
-            # True anomaly
-            theta = 2 * np.arctan2(np.sqrt(1 + e_transfer) * np.sin(E / 2),
-                                np.sqrt(1 - e_transfer) * np.cos(E / 2))
-            # Expected radius
-            r_expected = a_transfer * (1 - e_transfer**2) / (1 + e_transfer * np.cos(theta))
-        else:
-            # Circularize at r_final
-            r_expected = r_final
-
-        # Compute errors
-        r_err = r - r_expected
-
-        d_r_err = (r_err - self.prev_r_err) / self.env.dt if self.prev_r_err is not None else 0.0
-        self.prev_r_err = r_err
-
-        self.integral_r_err += r_err * self.env.dt
-
-        max_timesteps_passed = self.env.max_steps * self.env.dt
-
-        # Normalize errors
-        r_err_norm = r_err / r_expected
-        d_r_err_norm = d_r_err / (r_expected / transfer_time)
-        int_r_err_norm = self.integral_r_err / (r_expected * max_timesteps_passed)
-
-        # Time-dependent penalty factor
+        # Check termination conditions
+        terminated = (r > 10.0) | (r < 0.1) # Flew away or crashed
+        truncated = self.current_step >= self.max_steps # Ran out of time
         
-        time_factor = t / max_timesteps_passed
+        reward, reward_components = self._compute_reward(r, vr, apo, ecc, terminated, truncated)
+        dones = terminated | truncated
+        
+        self.episode_rewards += reward
+        self.episode_lengths += 1
 
-        # Penalty factors using exponential decay
-        k1, k2, k3 = 1.0, 1.0, 1.0  # Tunable constants
-        penalty_r_err = np.exp(-k1 * abs(r_err_norm) * (1 + time_factor))
-        penalty_d_r_err = np.exp(-k2 * abs(d_r_err_norm) * (1 + time_factor))
-        penalty_int_r_err = np.exp(-k3 * abs(int_r_err_norm) * (1 + time_factor))
-
-        # Compute reward
-        base_reward = 1.0  # Maximum possible reward per step
-        reward = base_reward * penalty_r_err * penalty_d_r_err * penalty_int_r_err
-
-        # Ensure reward is not too small
-        min_reward = 0.01  # Minimal reward to avoid zero
-        reward = max(reward, min_reward)
-
-        # Heavy penalty for divergence
-        if r > 2 * r_final or r < r_initial / 2:
-            reward = min_reward  # Set reward to minimal value
-
-        # Save episode data
-        self.episode_data.append([
-            x, y, vx, vy, reward, action[0], r_err_norm, d_r_err_norm, int_r_err_norm
-        ])
-
-        # Info dictionary
-        info = {
-            "state": (x, y, vx, vy),
-            "r_err_norm": r_err_norm,
-            "d_r_err_norm": d_r_err_norm,
-            "int_r_err_norm": int_r_err_norm
-        }
-
-        # Prepare next observation
-        observation = self._convert_state(self.state, d_r_err_norm, int_r_err_norm)
-
-        return observation, reward, done, info
-
-    def _convert_state(self, state, d_r_err_norm, int_r_err_norm):
-        """
-        Converts the raw state into a processed observation for the RL model.
-        Args:
-            state: Raw state (numpy array [x, y, vx, vy]).
-            d_r_err_norm: Derivative of radial error.
-            int_r_err_norm: Integral of radial error.
-
-        Returns:
-            Processed observation (numpy array [scaled_r_err, v_radial, v_tangential, initial_r, timestep, flag,
-                                                specific_energy, angular_momentum, d_r_err, scaled_integral_r_err]).
-        """
-        x, y, vx, vy = state
-        r = np.sqrt(x**2 + y**2)
-        r = max(r, 1e-5)  # Avoid division by zero
-        v_radial = (x * vx + y * vy) / r
-        v_tangential = (x * vy - y * vx) / r
-        initial_r = self.env.init_r
-        flag = 1.0 if np.abs(r - 1.0) < 0.01 else 0.0
-        specific_energy = 0.5 * (vx**2 + vy**2) - self.env.GM / r
-        angular_momentum = r * v_tangential
-
-        # Scaling for radial error and integral of radial error
-        r_err = r - 1.0
-        r_max_err = max(abs(self.env.init_r - 1), 1e-2)
-        scaled_r_err = np.clip((r_err / r_max_err) * 2, -2, 2)
-
-        # Pack processed state
-        state = np.array([
-            scaled_r_err,         # Scaled radius error (=1 when at init_r)
-            v_radial,             # Radial velocity
-            v_tangential,         # Tangential velocity
-            1 - initial_r,        # Initial radial error
-            flag,                 # Flag if at one of the Hohmann thrust points
-            specific_energy,      # KE + PE
-            angular_momentum,     # Rotational momentum
-            d_r_err_norm,         # Change in radial error
-            int_r_err_norm        # Scaled cumulative radial error
-        ], dtype=np.float32)
-
-        return state
+        info = {}
+        # If any environments are done, collect their final stats and reset them
+        if torch.any(dones):
+            done_indices = torch.where(dones)[0]
+            info = {
+                'final_rewards': self.episode_rewards[done_indices].cpu().numpy(),
+                'final_lengths': self.episode_lengths[done_indices].cpu().numpy(),
+                'final_radius': r[done_indices].cpu().numpy(),
+                'final_vr': vr[done_indices].cpu().numpy(),
+                'final_apoapsis': apo[done_indices].cpu().numpy(),
+                'final_eccentricity': ecc[done_indices].cpu().numpy()
+            }
+            self.reset(done_indices)
+            
+        return obs, reward, dones, info, reward_components
