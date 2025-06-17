@@ -43,30 +43,18 @@ class Renderer:
         gif_env = OrbitalEnvironment(num_envs=num_render_envs, max_steps=env_prototype.max_steps, sim_device=device)
         gif_env.max_steps = 2_000
 
-        # --- FIX START: Manually set initial states for diverse starting radii ---
-
-        # 1. Reset the environment to initialize all internal states (like episode counters, integrals, etc.)
         gif_env.reset()
-
-        # 2. Create a tensor of uniformly spaced initial radii across the desired range.
         initial_radii = torch.linspace(0.2, 4.0, num_render_envs, device=device)
-
-        # 3. Manually overwrite the position and velocity to create circular orbits at these new radii.
         gif_env.x = initial_radii
         gif_env.y.zero_() # Start on the x-axis
         gif_env.vx.zero_()
         # v = sqrt(GM/r) for a circular orbit
         gif_env.vy = torch.sqrt(gif_env.GM / torch.clamp(initial_radii, min=1e-6))
 
-        # 4. Re-calculate the initial observation based on this new manually-set state.
-        #    This is crucial because the policy network needs the correct starting observation.
-        #    We also reset the PID-related 'previous' state trackers.
         r, vr, _, apo, ecc = gif_env._get_raw_state()
         gif_env.prev_r, gif_env.prev_v_radial, gif_env.prev_eccentricity = r.clone(), vr.clone(), ecc.clone()
         gif_env.previous_r_error = torch.abs(r - 1.0)
         obs = gif_env._get_observation()
-
-        # --- FIX END ---
 
         frames = []
         # Initialize trajectory logging from the new starting positions
@@ -74,9 +62,7 @@ class Renderer:
         dones = torch.zeros(num_render_envs, dtype=torch.bool, device=device)
 
         for step in range(gif_env.max_steps):
-            # --- Create a single frame for the GIF ---
             plt.figure(figsize=(8, 8))
-            # Central body and target orbit
             plt.scatter(0, 0, color='yellow', s=1000, label='Central Body', zorder=5)
             angles = np.linspace(0, 2 * np.pi, 200)
             plt.plot(np.cos(angles), np.sin(angles), 'g--', label='Target Orbit (r=1.0)', zorder=1)
