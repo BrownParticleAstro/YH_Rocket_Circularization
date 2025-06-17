@@ -6,6 +6,8 @@ Simulate 2D orbital maneuvers using **Reinforcement Learning (PPO)**, featuring 
 
 ## 🌟 Overview
 
+![Model Orbital Resilience](models/model_08-47-58_17-06-2025/final_orbit_animation.gif)
+
 The goal of this project is to simulate spacecraft orbital control. The simulation hooks a model of the user's choice up to controlling thrusts from a spacecraft with the goal of achieving stable orbits under minimal fuel cost
 
 **Core features include:**
@@ -87,3 +89,5 @@ python render.py --model_path /path/to/model --episode_id 1
 ---
 
 Enjoy experimenting with the orbital environment, and feel free to adapt this project to meet your research or educational needs! 🌍✨
+
+![](models/model_08-47-58_17-06-2025/final_eval_across_radii.png)
