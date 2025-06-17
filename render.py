@@ -41,6 +41,7 @@ class Renderer:
         num_render_envs = 10 # Number of trajectories to show in the GIF
         colors = plt.cm.viridis(np.linspace(0, 1, num_render_envs))
         gif_env = OrbitalEnvironment(num_envs=num_render_envs, max_steps=env_prototype.max_steps, sim_device=device)
+        gif_env.max_steps = 2_000
 
         # --- FIX START: Manually set initial states for diverse starting radii ---
 
