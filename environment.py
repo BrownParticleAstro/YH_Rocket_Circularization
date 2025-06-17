@@ -274,7 +274,6 @@ class OrbitalEnvironment:
         # 5. Termination Penalty: A large penalty for crashing or flying away.
         total_rew[terminated] = -2.0
         
-        # For logging purposes
         reward_components = {'r_prog': r_prog.mean().item(), 'apo_rew': apo_rew.mean().item(), 'ecc_rew': ecc_rew.mean().item()}
         return total_rew, reward_components
     
@@ -292,7 +291,6 @@ class OrbitalEnvironment:
         
         # RK4 Integration for gravitational forces
         pos, vel = torch.stack([self.x, self.y], dim=-1), torch.stack([self.vx, self.vy], dim=-1)
-        # --- FIX: Changed self.acceleration to self._acceleration in the four lines below ---
         k1_v = self._acceleration(pos[:, 0], pos[:, 1]); k1_p = vel
         k2_v = self._acceleration(pos[:, 0] + 0.5*self.dt*k1_p[:, 0], pos[:, 1] + 0.5*self.dt*k1_p[:, 1]); k2_p = vel + 0.5*self.dt*k1_v
         k3_v = self._acceleration(pos[:, 0] + 0.5*self.dt*k2_p[:, 0], pos[:, 1] + 0.5*self.dt*k2_p[:, 1]); k3_p = vel + 0.5*self.dt*k2_v
