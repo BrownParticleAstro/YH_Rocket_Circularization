@@ -116,6 +116,7 @@ class OrbitalEnvironment:
     def __init__(self, GM=1.0, dt=0.01, max_steps=1000, num_envs=1, sim_device=None):
         self.num_envs, self.device = num_envs, sim_device or torch.device("cpu")
         self.GM, self.dt, self.max_steps = GM, dt, max_steps
+        self.pe_target = -self.GM  # Target potential energy for circular orbit at radius 1.0
         
         # State variables for all environments (position and velocity)
         self.x, self.y, self.vx, self.vy = [torch.zeros(num_envs, device=self.device) for _ in range(4)]
@@ -126,9 +127,9 @@ class OrbitalEnvironment:
         
         # State variables for PID-like features
         self.prev_r, self.prev_v_radial, self.prev_eccentricity, self.prev_apoapsis = [torch.zeros(num_envs, device=self.device) for _ in range(4)]
-        self.integral_r_error, self.integral_ecc_error = [torch.zeros(num_envs, device=self.device) for _ in range(2)]
+        self.integral_pe_error, self.integral_ecc_error = [torch.zeros(num_envs, device=self.device) for _ in range(2)]
         self.integral_clamp = 5.0
-        self.previous_r_error = torch.zeros(self.num_envs, device=self.device)
+        self.previous_pe_error = torch.zeros(num_envs, device=self.device)
         
         # Tracking episode stats
         self.episode_rewards, self.episode_lengths = [torch.zeros(num_envs, device=self.device) for _ in range(2)]
@@ -151,7 +152,7 @@ class OrbitalEnvironment:
         
         # Reset episode-specific stats
         self.episode_rewards[indices], self.episode_lengths[indices] = 0.0, 0
-        self.integral_r_error[indices], self.integral_ecc_error[indices] = 0.0, 0.0
+        self.integral_pe_error[indices], self.integral_ecc_error[indices] = 0.0, 0.0
 
         # Curriculum learning: Start with initial states close to the target orbit and
         # gradually increase the difficulty by sampling from a wider range of initial radii.
@@ -165,9 +166,9 @@ class OrbitalEnvironment:
         self.current_step[indices] = 0
 
         # Reset PID-related state variables
-        r, vr, _, apo, ecc = self._get_raw_state()
+        r, vr, _, apo, ecc, pe = self._get_raw_state()
         self.prev_r[indices], self.prev_v_radial[indices], self.prev_eccentricity[indices], self.prev_apoapsis[indices] = r[indices], vr[indices], ecc[indices], apo[indices]
-        self.previous_r_error[indices] = torch.abs(r[indices] - 1.0)
+        self.previous_pe_error[indices] = torch.abs(pe[indices] - self.pe_target)
         self.initial_radii[indices] = init_r
         
         return self._get_observation()
@@ -195,6 +196,9 @@ class OrbitalEnvironment:
         energy = 0.5 * v2 - self.GM / r_safe
         h = self.x * self.vy - self.y * self.vx
         
+        # Potential energy
+        pe = -self.GM / r_safe
+        
         # Semi-major axis (a), apoapsis, and eccentricity (e)
         a = torch.full_like(energy, float('inf'))
         is_ellip = energy < 0
@@ -203,7 +207,7 @@ class OrbitalEnvironment:
         apo = a * (1 + ecc)
         apo[~is_ellip] = float('inf') # Apoapsis is infinite for non-elliptical orbits
         
-        return r, vr, vt, torch.clamp(apo, 0.0, 10.0), torch.clamp(ecc, 0.0, 2.0)
+        return r, vr, vt, torch.clamp(apo, 0.0, 10.0), torch.clamp(ecc, 0.0, 2.0), pe
 
     def _get_observation(self):
         """
@@ -211,21 +215,23 @@ class OrbitalEnvironment:
         PID controllers, including proportional (error), derivative (change in error),
         and integral (accumulated error) terms.
         """
-        r, vr, vt, apo, ecc = self._get_raw_state()
+        r, vr, vt, apo, ecc, pe = self._get_raw_state()
         
-        # Proportional terms (current error)
-        r_err = r - 1.0
+        # Proportional terms (current error) - using potential energy instead of radius
+        pe_err = pe - self.pe_target  # Potential energy error
         apo_err = apo - 1.0
         
         # Derivative terms (rate of change of error)
-        r_err_deriv = vr # Radial velocity is the derivative of radius
+        # The derivative of potential energy with respect to time is related to radial velocity
+        # dU/dt = d(-GM/r)/dt = GM/r^2 * dr/dt = GM/r^2 * vr
+        pe_err_deriv = self.GM / torch.clamp(r**2, min=1e-6) * vr
         vr_deriv = (vr - self.prev_v_radial) / self.dt
         ecc_deriv = (ecc - self.prev_eccentricity) / self.dt
         
         # Integral terms (accumulated error)
-        self.integral_r_error += r_err * self.dt
+        self.integral_pe_error += pe_err * self.dt
         self.integral_ecc_error += ecc * self.dt
-        self.integral_r_error.clamp_(-self.integral_clamp, self.integral_clamp) # Anti-windup
+        self.integral_pe_error.clamp_(-self.integral_clamp, self.integral_clamp) # Anti-windup
         self.integral_ecc_error.clamp_(-self.integral_clamp, self.integral_clamp)
         
         # Update previous values for the next step's derivative calculation
@@ -233,30 +239,31 @@ class OrbitalEnvironment:
         
         # The final observation vector fed to the agent
         return torch.stack([
-            r_err,              # Proportional radius error
-            vr,                 # Radial velocity (derivative of radius)
-            ecc,                # Eccentricity (proportional error for circularity)
-            apo_err,            # Apoapsis error
-            r_err_deriv,        # (Same as vr)
-            vr_deriv,           # Derivative of radial velocity
-            ecc_deriv,          # Derivative of eccentricity
-            self.integral_r_error, # Integral of radius error
+            pe_err,              # Proportional potential energy error
+            vr,                  # Radial velocity (derivative of radius)
+            ecc,                 # Eccentricity (proportional error for circularity)
+            apo_err,             # Apoapsis error
+            pe_err_deriv,        # Derivative of potential energy error
+            vr_deriv,            # Derivative of radial velocity
+            ecc_deriv,           # Derivative of eccentricity
+            self.integral_pe_error, # Integral of potential energy error
             self.integral_ecc_error, # Integral of eccentricity error
-            vt                  # Tangential velocity
+            vt                   # Tangential velocity
         ], dim=-1)
 
     def _compute_reward(self, r, vr, apo, ecc, terminated, truncated):
         """
         Calculates the reward based on the current state. The goal is to incentivize
-        the agent to reach and maintain a circular orbit with radius 1.
+        the agent to reach and maintain a circular orbit with the target potential energy.
         """
-        r_err_abs = torch.abs(r - 1.0)
+        pe = -self.GM / torch.clamp(r, min=1e-6)
+        pe_err_abs = torch.abs(pe - self.pe_target)
         
-        # 1. Progress Reward: Dense reward for reducing the radial error.
-        r_prog = self.previous_r_error - r_err_abs
-        self.previous_r_error = r_err_abs
+        # 1. Progress Reward: Dense reward for reducing the potential energy error.
+        pe_prog = self.previous_pe_error - pe_err_abs
+        self.previous_pe_error = pe_err_abs
         
-        # 2. State Penalties: Penalize deviations from the target state (circular, r=1).
+        # 2. State Penalties: Penalize deviations from the target state (circular, target potential energy).
         apo_rew = -0.5 * torch.abs(apo - 1.0) # Penalty for incorrect apoapsis
         ecc_rew = -0.5 * ecc                 # Penalty for non-zero eccentricity
         vr_pen = -0.1 * torch.abs(vr)        # Penalty for radial velocity
@@ -265,16 +272,16 @@ class OrbitalEnvironment:
         act_pen = -0.01
         
         # Combine reward components with weights
-        total_rew = (150.0 * r_prog) + vr_pen + act_pen + 0.01 + apo_rew + ecc_rew
+        total_rew = (150.0 * pe_prog) + vr_pen + act_pen + 0.01 + apo_rew + ecc_rew
         
         # 4. Success Bonus: A large bonus if the episode ends in a good state.
-        good_state = (r_err_abs < 0.05) & (torch.abs(vr) < 0.05) & (torch.abs(apo - 1.0) < 0.05) & (ecc < 0.05)
+        good_state = (pe_err_abs < 0.05) & (torch.abs(vr) < 0.05) & (torch.abs(apo - 1.0) < 0.05) & (ecc < 0.05)
         total_rew[truncated & good_state] += 5.0
         
         # 5. Termination Penalty: A large penalty for crashing or flying away.
         total_rew[terminated] = -2.0
         
-        reward_components = {'r_prog': r_prog.mean().item(), 'apo_rew': apo_rew.mean().item(), 'ecc_rew': ecc_rew.mean().item()}
+        reward_components = {'pe_prog': pe_prog.mean().item(), 'apo_rew': apo_rew.mean().item(), 'ecc_rew': ecc_rew.mean().item()}
         return total_rew, reward_components
     
     def step(self, action):
@@ -307,7 +314,7 @@ class OrbitalEnvironment:
         
         self.current_step += 1
         obs = self._get_observation()
-        r, vr, _, apo, ecc = self._get_raw_state()
+        r, vr, _, apo, ecc, pe = self._get_raw_state()
         
         # Check termination conditions
         terminated = (r > 10.0) | (r < 0.1) # Flew away or crashed
@@ -329,7 +336,8 @@ class OrbitalEnvironment:
                 'final_radius': r[done_indices].cpu().numpy(),
                 'final_vr': vr[done_indices].cpu().numpy(),
                 'final_apoapsis': apo[done_indices].cpu().numpy(),
-                'final_eccentricity': ecc[done_indices].cpu().numpy()
+                'final_eccentricity': ecc[done_indices].cpu().numpy(),
+                'final_potential_energy': pe[done_indices].cpu().numpy()
             }
             self.reset(done_indices)
             
