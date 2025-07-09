@@ -3,4 +3,4 @@ __pycache__/
 wandb/
 *.pt
 *.json
-*.gif
+*.gifmodels/example/model_12-10-11_08-07-2025/*.gif
